@@ -7,6 +7,7 @@
 #include "bgfx/bgfx.h"
 #include "bgfx_utils.h"
 #include "imgui/imgui.h"
+#include <entry/input.h>
 
 namespace
 {
@@ -39,6 +40,8 @@ class ExampleNanite : public entry::AppI
 public:
 	ExampleNanite(const char* _name, const char* _description, const char* _url)
 		: entry::AppI(_name, _description, _url)
+		, camPos(0.0f,0.0f,0.0f)
+		, bunnyPos(0.0f, 0.0f, 2.0f)
 	{
 	}
 
@@ -110,11 +113,31 @@ public:
 			| BGFX_SAMPLER_U_CLAMP
 			| BGFX_SAMPLER_V_CLAMP
 			;
+
+		const bgfx::Caps* caps = bgfx::getCaps();
+
+		bgfx::setViewFrameBuffer(kRenderPassCombine, BGFX_INVALID_HANDLE);
+		bgfx::setViewName(kRenderPassCombine, "ViewCombine");
+		float proj[16];
+		bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
+		bgfx::setViewTransform(kRenderPassCombine, NULL, proj);
+
+
 		m_baseRT = bgfx::createTexture2D(
 			bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
+		bgfx::Attachment baseAttachment;
+		baseAttachment.init(m_baseRT);
+		m_baseFB = bgfx::createFrameBuffer(1, &baseAttachment);
+		bgfx::setViewFrameBuffer(kRenderPassBaseGeometry, m_baseFB);
+		bgfx::setViewName(kRenderPassBaseGeometry, "ViewBaseGeometry");
+
 		m_naniteRT = bgfx::createTexture2D(
 			bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
-
+		bgfx::Attachment naniteAttachment;
+		naniteAttachment.init(m_naniteRT);
+		m_naniteFB = bgfx::createFrameBuffer(1, &naniteAttachment);
+		bgfx::setViewFrameBuffer(kRenderPassNaniteGeometry, m_naniteFB);
+		bgfx::setViewName(kRenderPassNaniteGeometry, "ViewNaniteGeometry");
 
 		m_samplerBase = bgfx::createUniform("samplerBase", bgfx::UniformType::Sampler);
 		m_samplerNanite = bgfx::createUniform("samplerNanite", bgfx::UniformType::Sampler);
@@ -196,94 +219,94 @@ public:
 		}
 	}
 
+	void renderScene(bgfx::ViewId viewId)
+	{
+		
+		float model[16];
+		bx::mtxTranslate(model, bunnyPos.x, bunnyPos.y, bunnyPos.z);
+		bx::mtxRotateXY(model, 0.0f, 0.0f);
+
+		meshSubmit(m_mesh, viewId, m_program, model);
+	}
+
+	void updateViewMatrix()
+	{
+		bx::mtxLookAt(m_View, camPos, bunnyPos);
+	}
+
 	void renderBase()
 	{
-		bgfx::setViewFrameBuffer(kRenderPassBaseGeometry, BGFX_INVALID_HANDLE);
+
+		bgfx::setMarker("[DN] Base Pass");
 
 		bgfx::setState(BGFX_STATE_MSAA, 0);
-
-		// Set view 0 default viewport.
-		bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
+		bgfx::setViewRect(kRenderPassBaseGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
 		// This dummy draw call is here to make sure that view 0 is cleared
 		// if no other draw calls are submitted to view 0.
-		bgfx::touch(0);
+		bgfx::touch(kRenderPassBaseGeometry);
 
-		float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
-		bgfx::setUniform(u_time, &time);
 
-		const bx::Vec3 at = { 0.0f, 1.0f,  0.0f };
-		const bx::Vec3 eye = { 0.0f, 1.0f, -2.5f };
+		const bx::Vec3 at = bx::Vec3(0,0,1);
 
 		// Set view and projection matrix for view 0.
 		{
-			float view[16];
-			bx::mtxLookAt(view, eye, at);
-
+		
 			float proj[16];
 			bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-			bgfx::setViewTransform(kRenderPassBaseGeometry, view, proj);
+			bgfx::setViewTransform(kRenderPassBaseGeometry, m_View, proj);
 
 			// Set view 0 default viewport.
-			bgfx::setViewRect(0, 0, 0, uint16_t(m_width), uint16_t(m_height));
+			bgfx::setViewRect(kRenderPassBaseGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 		}
 
-		float mtx[16];
-		bx::mtxRotateXY(mtx
-			, 0.0f
-			, 0.0f
-		);
-
-		meshSubmit(m_mesh, 0, m_program, mtx);
+		renderScene(kRenderPassBaseGeometry);
 	}
 
 	void renderNanite()
 	{
-		bgfx::setViewFrameBuffer(kRenderPassNaniteGeometry, BGFX_INVALID_HANDLE);
+		bgfx::setMarker("[DN] Nanite Pass");
 
-
-		bgfx::setState(BGFX_STATE_MSAA);
+		bgfx::setState(BGFX_STATE_MSAA, 1);
 
 		// Set view 0 default viewport.
 		bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
 		// This dummy draw call is here to make sure that view 0 is cleared
 		// if no other draw calls are submitted to view 0.
-		bgfx::touch(0);
-
-		float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
-		bgfx::setUniform(u_time, &time);
+		bgfx::touch(kRenderPassNaniteGeometry);
 
 		const bx::Vec3 at = { 0.0f, 1.0f,  0.0f };
 		const bx::Vec3 eye = { 0.0f, 1.0f, -2.5f };
 
 		// Set view and projection matrix for view 0.
 		{
-			float view[16];
-			bx::mtxLookAt(view, eye, at);
-
 			float proj[16];
 			bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-			bgfx::setViewTransform(kRenderPassNaniteGeometry, view, proj);
+			bgfx::setViewTransform(kRenderPassNaniteGeometry, m_View, proj);
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 		}
-
-		float mtx[16];
-		bx::mtxRotateXY(mtx
-			, 0.0f
-			, 0.0f
-		);
-
-		meshSubmit(m_mesh, 0, m_program, mtx);
+		renderScene(kRenderPassNaniteGeometry);
 	}
 
 	bool update() override
 	{
 		if (!entry::processEvents(m_width, m_height, m_debug, m_reset, &m_mouseState))
 		{
+
+			int64_t currentTime = bx::getHPCounter();
+			int64_t elapsedTime = currentTime - m_time;
+			m_time = currentTime;
+
+			float elapsedTimeF = (float)((elapsedTime) / double(bx::getHPFrequency()));
+			float time = (float)((currentTime) / double(bx::getHPFrequency()));
+
+			bgfx::setUniform(u_time, &time);
 			/*
+			*
+			*
 			imguiBeginFrame(m_mouseState.m_mx
 				,  m_mouseState.m_my
 				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
@@ -296,14 +319,40 @@ public:
 
 			showExampleDialog(this);
 
-			imguiEndFrame();
 
+			ImGui::TextWrapped("pos %f %f %f", camPos.x, camPos.y, camPos.z);
+
+			imguiEndFrame();
 			*/
+
+			bx::Vec3 translation = bx::Vec3(0.0f);
+			if (inputGetKeyState(entry::Key::KeyW))
+				translation = add(translation, bx::Vec3(0.0f, 0.0f, 1.0f));
+			if (inputGetKeyState(entry::Key::KeyR))
+				translation = add(translation, bx::Vec3(0.0f, 0.0f, -1.0f));
+			if (inputGetKeyState(entry::Key::KeyS))
+				translation = add(translation, bx::Vec3(1.0f, 0.0f, 0.0f));
+			if (inputGetKeyState(entry::Key::KeyA))
+				translation = add(translation, bx::Vec3(-1.0f, 0.0f, 0.0));
+			if (inputGetKeyState(entry::Key::KeyQ))
+				translation = add(translation, bx::Vec3(0.0f, 1.0f, 0.0));
+			if (inputGetKeyState(entry::Key::KeyF))
+				translation = add(translation, bx::Vec3(0.0f, -1.0f, 0.0));
+			
+			translation = mul(normalize(translation), elapsedTimeF* 1.0f );
+
+	
+			camPos = add(camPos, translation);
+
+			updateViewMatrix();
 
 			renderBase();
 			renderNanite();
+			bgfx::setViewRect(kRenderPassCombine, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
 
+			bgfx::touch(kRenderPassCombine);
+			bgfx::setMarker("[DN] Combine Pass");
 
 			// Combine color and light buffers.
 			bgfx::setTexture(0, m_samplerBase, m_baseRT);
@@ -313,11 +362,8 @@ public:
 				| BGFX_STATE_WRITE_A
 			);
 
-			bgfx::setState(BGFX_STATE_MSAA, 0);
-
-
-			screenSpaceQuad(true);
-
+			screenSpaceQuad(false);
+			bgfx::submit(kRenderPassCombine, m_displayProgram);
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
 			bgfx::frame();
@@ -336,28 +382,37 @@ public:
 	uint32_t m_reset;
 
 	int64_t m_timeOffset;
+	int64_t m_time;
 	Mesh* m_mesh;
 	bgfx::ProgramHandle m_program;
 	bgfx::ProgramHandle m_displayProgram;
 	bgfx::UniformHandle u_time;
 
 	bgfx::TextureHandle m_baseRT;
+	bgfx::FrameBufferHandle m_baseFB;
 	bgfx::TextureHandle m_naniteRT;
-
+	bgfx::FrameBufferHandle m_naniteFB;
 
 	bgfx::UniformHandle m_samplerBase;
 	bgfx::UniformHandle m_samplerNanite;
 
 	const bgfx::ViewId kRenderPassBaseGeometry = 1;
 	const bgfx::ViewId kRenderPassNaniteGeometry = 2;
+	const bgfx::ViewId kRenderPassCombine = 3;
 
 
 	enum RenderPassType
 	{
-		BasePass = 0,
-		NanitePass = 1,
-		CombinePass = 2
+		BasePass = 1,
+		NanitePass = 2,
+		CombinePass = 3
 	};
+
+
+	bx::Vec3 camPos;
+	float m_View[16];
+
+	bx::Vec3 bunnyPos;
 };
 
 } // namespace
