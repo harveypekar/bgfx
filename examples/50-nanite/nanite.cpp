@@ -123,19 +123,30 @@ public:
 		bgfx::setViewTransform(kRenderPassCombine, NULL, proj);
 
 
+		bgfx::TextureFormat::Enum depthFormat =
+			bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D32F, BGFX_TEXTURE_RT)
+			? bgfx::TextureFormat::D32F
+			: bgfx::TextureFormat::D24
+			;
+
+
 		m_baseRT = bgfx::createTexture2D(
-			bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
-		bgfx::Attachment baseAttachment;
-		baseAttachment.init(m_baseRT);
-		m_baseFB = bgfx::createFrameBuffer(1, &baseAttachment);
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
+		m_baseDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
+		bgfx::Attachment baseAttachments[2];
+		baseAttachments[0].init(m_baseRT);
+		baseAttachments[1].init(m_baseDepthRT);
+		m_baseFB = bgfx::createFrameBuffer(2, baseAttachments);
 		bgfx::setViewFrameBuffer(kRenderPassBaseGeometry, m_baseFB);
 		bgfx::setViewName(kRenderPassBaseGeometry, "ViewBaseGeometry");
 
 		m_naniteRT = bgfx::createTexture2D(
-			bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
-		bgfx::Attachment naniteAttachment;
-		naniteAttachment.init(m_naniteRT);
-		m_naniteFB = bgfx::createFrameBuffer(1, &naniteAttachment);
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
+		m_naniteDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
+		bgfx::Attachment naniteAttachments[2];
+		naniteAttachments[0].init(m_naniteRT);
+		naniteAttachments[1].init(m_naniteDepthRT);
+		m_naniteFB = bgfx::createFrameBuffer(2, naniteAttachments);
 		bgfx::setViewFrameBuffer(kRenderPassNaniteGeometry, m_naniteFB);
 		bgfx::setViewName(kRenderPassNaniteGeometry, "ViewNaniteGeometry");
 
@@ -389,8 +400,10 @@ public:
 	bgfx::UniformHandle u_time;
 
 	bgfx::TextureHandle m_baseRT;
+	bgfx::TextureHandle m_baseDepthRT;
 	bgfx::FrameBufferHandle m_baseFB;
 	bgfx::TextureHandle m_naniteRT;
+	bgfx::TextureHandle m_naniteDepthRT;
 	bgfx::FrameBufferHandle m_naniteFB;
 
 	bgfx::UniformHandle m_samplerBase;
