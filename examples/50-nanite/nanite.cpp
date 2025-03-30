@@ -6,6 +6,12 @@
 #include "common.h"
 #include "bgfx/bgfx.h"
 #include "bgfx_utils.h"
+
+
+#include <bx/allocator.h>
+#include <bx/file.h>
+#include <bx/string.h>
+
 #include "imgui/imgui.h"
 #include <entry/input.h>
 
@@ -65,15 +71,15 @@ public:
 		init.resolution.reset = m_reset;
 		bgfx::init(init);
 
-
+		m_frameNum = 0;
 
 		// Enable debug text.
 		bgfx::setDebug(m_debug);
 
 		// Set view 0 clear state.
-		bgfx::setViewClear(0
+		bgfx::setViewClear(kRenderPassBaseGeometry
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-			, 0x303030ff
+			, 0x000000FF
 			, 1.0f
 			, 0
 		);
@@ -82,17 +88,16 @@ public:
 		// Set geometry pass view clear state.
 		bgfx::setViewClear(kRenderPassBaseGeometry
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, 0x000000FF
 			, 1.0f
-			, 0
-			, 1
 			, 0
 		);
 
 		// Set light pass view clear state.
 		bgfx::setViewClear(kRenderPassNaniteGeometry
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, 0x000000FF
 			, 1.0f
-			, 0
 			, 0
 		);
 
@@ -132,13 +137,20 @@ public:
 
 		m_baseRT = bgfx::createTexture2D(
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
+		bgfx::setName(m_baseRT, "baseRT");
 		m_baseDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
+		bgfx::setName(m_baseDepthRT, "baseDepthRT");
 		bgfx::Attachment baseAttachments[2];
 		baseAttachments[0].init(m_baseRT);
 		baseAttachments[1].init(m_baseDepthRT);
 		m_baseFB = bgfx::createFrameBuffer(2, baseAttachments);
+		bgfx::setName(m_baseFB, "baseFB");
 		bgfx::setViewFrameBuffer(kRenderPassBaseGeometry, m_baseFB);
 		bgfx::setViewName(kRenderPassBaseGeometry, "ViewBaseGeometry");
+
+		m_baseRB = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+		setName(m_baseRB, "baseRB");
 
 		m_naniteRT = bgfx::createTexture2D(
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
@@ -150,8 +162,19 @@ public:
 		bgfx::setViewFrameBuffer(kRenderPassNaniteGeometry, m_naniteFB);
 		bgfx::setViewName(kRenderPassNaniteGeometry, "ViewNaniteGeometry");
 
+		m_naniteRB = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+
+
 		m_samplerBase = bgfx::createUniform("samplerBase", bgfx::UniformType::Sampler);
 		m_samplerNanite = bgfx::createUniform("samplerNanite", bgfx::UniformType::Sampler);
+
+		m_baseRBTimer = 0xDEADBEEF;
+		m_naniteRBTimer = 0xDEADBEEF;
+		m_rbReady = false;
+
+		m_basePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
+		m_nanitePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
 
 		m_timeOffset = bx::getHPCounter();
 
@@ -359,6 +382,32 @@ public:
 
 			renderBase();
 			renderNanite();
+
+			if (inputGetKeyState(entry::Key::KeyB) && !m_rbReady)
+			{
+				bgfx::setMarker("[DN] Readback Pass");
+
+				m_rbReady = true;
+				bgfx::blit(kRenderPassCopyBack, m_baseRB, 0, 0, m_baseRT);
+				m_baseRBTimer = bgfx::readTexture(m_baseRB, m_basePixelBuffer);
+				//	bgfx::readTexture(m_naniteRT, &m_naniteRBTimer);
+			}
+
+			if (m_frameNum == m_baseRBTimer + 2)
+			{
+				bx::FileWriter writer;
+				if (bx::open(&writer, "base.png", false, bx::ErrorAssert{}))
+				{
+					//bimg::imageWriteTga(&writer, m_width, m_height, m_width*sizeof(uint32_t), m_basePixelBuffer, false, false, bx::ErrorAssert{});
+					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), m_basePixelBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
+
+					bx::close(&writer);
+				}
+
+				m_rbReady = false;
+			}
+
+
 			bgfx::setViewRect(kRenderPassCombine, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
 
@@ -375,9 +424,14 @@ public:
 
 			screenSpaceQuad(false);
 			bgfx::submit(kRenderPassCombine, m_displayProgram);
+
+
+		
+
+
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
-			bgfx::frame();
+			m_frameNum = bgfx::frame();
 
 			return true;
 		}
@@ -394,6 +448,8 @@ public:
 
 	int64_t m_timeOffset;
 	int64_t m_time;
+	uint32_t m_frameNum;
+
 	Mesh* m_mesh;
 	bgfx::ProgramHandle m_program;
 	bgfx::ProgramHandle m_displayProgram;
@@ -402,16 +458,27 @@ public:
 	bgfx::TextureHandle m_baseRT;
 	bgfx::TextureHandle m_baseDepthRT;
 	bgfx::FrameBufferHandle m_baseFB;
+	bgfx::TextureHandle m_baseRB;
+
 	bgfx::TextureHandle m_naniteRT;
 	bgfx::TextureHandle m_naniteDepthRT;
 	bgfx::FrameBufferHandle m_naniteFB;
+	bgfx::TextureHandle m_naniteRB;
+
+	uint32_t m_baseRBTimer;
+	uint32_t m_naniteRBTimer;
+	bool m_rbReady;
+	uint8_t* m_basePixelBuffer;
+	uint8_t* m_nanitePixelBuffer;
+
 
 	bgfx::UniformHandle m_samplerBase;
 	bgfx::UniformHandle m_samplerNanite;
 
 	const bgfx::ViewId kRenderPassBaseGeometry = 1;
 	const bgfx::ViewId kRenderPassNaniteGeometry = 2;
-	const bgfx::ViewId kRenderPassCombine = 3;
+	const bgfx::ViewId kRenderPassCopyBack = 3;
+	const bgfx::ViewId kRenderPassCombine = 4;
 
 
 	enum RenderPassType
