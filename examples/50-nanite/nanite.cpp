@@ -48,6 +48,7 @@ public:
 		: entry::AppI(_name, _description, _url)
 		, camPos(0.0f,0.0f,0.0f)
 		, bunnyPos(0.0f, 0.0f, 2.0f)
+		, m_fov(0.0f)
 	{
 	}
 
@@ -119,14 +120,9 @@ public:
 			| BGFX_SAMPLER_V_CLAMP
 			;
 
-		const bgfx::Caps* caps = bgfx::getCaps();
 
 		bgfx::setViewFrameBuffer(kRenderPassCombine, BGFX_INVALID_HANDLE);
 		bgfx::setViewName(kRenderPassCombine, "ViewCombine");
-		float proj[16];
-		bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
-		bgfx::setViewTransform(kRenderPassCombine, NULL, proj);
-
 
 		bgfx::TextureFormat::Enum depthFormat =
 			bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D32F, BGFX_TEXTURE_RT)
@@ -265,7 +261,18 @@ public:
 
 	void updateViewMatrix()
 	{
-		bx::mtxLookAt(m_View, camPos, bunnyPos);
+		const bgfx::Caps* caps = bgfx::getCaps();
+
+		bx::mtxLookAt(m_view, camPos, bunnyPos);
+
+		float nearF = .1f;
+		float farF = 100.0f;
+
+		const float aspect = float(m_width) / float(m_height);
+		m_fov.y = 60;
+		m_fov.x = m_fov.y * aspect;
+		bx::mtxProj(m_proj, m_fov.y, aspect, nearF, farF, caps->homogeneousDepth);
+
 	}
 
 	void renderBase()
@@ -285,10 +292,7 @@ public:
 
 		// Set view and projection matrix for view 0.
 		{
-		
-			float proj[16];
-			bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-			bgfx::setViewTransform(kRenderPassBaseGeometry, m_View, proj);
+			bgfx::setViewTransform(kRenderPassBaseGeometry, m_view, m_proj);
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(kRenderPassBaseGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
@@ -315,9 +319,7 @@ public:
 
 		// Set view and projection matrix for view 0.
 		{
-			float proj[16];
-			bx::mtxProj(proj, 60.0f, float(m_width) / float(m_height), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-			bgfx::setViewTransform(kRenderPassNaniteGeometry, m_View, proj);
+			bgfx::setViewTransform(kRenderPassNaniteGeometry, m_view, m_proj);
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
@@ -407,6 +409,10 @@ public:
 				m_rbReady = false;
 			}
 
+			float proj[16];
+			const bgfx::Caps* caps = bgfx::getCaps();
+			bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
+			bgfx::setViewTransform(kRenderPassCombine, NULL, proj);
 
 			bgfx::setViewRect(kRenderPassCombine, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
@@ -450,6 +456,8 @@ public:
 	int64_t m_time;
 	uint32_t m_frameNum;
 
+	bx::Vec3 m_fov;
+
 	Mesh* m_mesh;
 	bgfx::ProgramHandle m_program;
 	bgfx::ProgramHandle m_displayProgram;
@@ -490,7 +498,8 @@ public:
 
 
 	bx::Vec3 camPos;
-	float m_View[16];
+	float m_view[16];
+	float m_proj[16];
 
 	bx::Vec3 bunnyPos;
 };
