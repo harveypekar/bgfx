@@ -15,6 +15,10 @@
 #include "imgui/imgui.h"
 #include <entry/input.h>
 
+#include <iostream>
+#include <format>
+#include <chrono>
+
 namespace
 {
 
@@ -40,20 +44,43 @@ struct PosTexCoord0Vertex
 
 bgfx::VertexLayout PosTexCoord0Vertex::ms_layout;
 
+#define REFERENCE_SAMPLES 64
 
 class ExampleNanite : public entry::AppI
 {
 public:
 	ExampleNanite(const char* _name, const char* _description, const char* _url)
 		: entry::AppI(_name, _description, _url)
-		, camPos(0.0f,0.0f,0.0f)
-		, bunnyPos(0.0f, 0.0f, 2.0f)
+		, m_camPos(0.0f,0.0f,0.0f)
+		, m_bunnyPos(0.0f, 0.0f, 2.0f)
 		, m_fov(0.0f)
 	{
 	}
 
 	void init(int32_t _argc, const char* const* _argv, uint32_t _width, uint32_t _height) override
 	{
+		std::time_t t = std::time(nullptr);
+		std::tm* const pTInfo = std::localtime(&t);
+
+		int year = 1900 + pTInfo->tm_year;
+		int month = pTInfo->tm_mon + 1;
+		int day = pTInfo->tm_mday;
+		int hour = pTInfo->tm_hour;
+		int minutes = pTInfo->tm_min;
+		int seconds = pTInfo->tm_sec;
+
+		m_runPrefix = (char*)malloc(1024);
+		bx::snprintf(m_runPrefix, 1024,
+			"%d_%d_%d_%d_%d_%d",
+			year,
+			month,
+			day,
+			hour,
+			minutes,
+			seconds
+			);
+
+
 		Args args(_argc, _argv);
 
 		m_width = _width;
@@ -85,17 +112,33 @@ public:
 			, 0
 		);
 
-
-		// Set geometry pass view clear state.
-		bgfx::setViewClear(kRenderPassBaseGeometry
+		// Set light pass view clear state.
+		bgfx::setViewClear(kRenderPassNaniteGeometry
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
 			, 0x000000FF
 			, 1.0f
 			, 0
 		);
 
-		// Set light pass view clear state.
-		bgfx::setViewClear(kRenderPassNaniteGeometry
+
+		// Set geometry pass view clear state.
+		bgfx::setViewClear(kRenderPassSuperGeometry
+			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, 0x000000FF
+			, 1.0f
+			, 0
+		);
+
+		// Set geometry pass view clear state.
+		bgfx::setViewClear(kRenderPassSuperAccumulate
+			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, 0x000000FF
+			, 1.0f
+			, 0
+		);
+
+		// Set geometry pass view clear state.
+		bgfx::setViewClear(kRenderPassCombine
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
 			, 0x000000FF
 			, 1.0f
@@ -160,14 +203,30 @@ public:
 
 		m_naniteRB = bgfx::createTexture2D(
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+		setName(m_naniteRB, "naniteRB");
 
+		m_superRT = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
+		m_superDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
+
+		bgfx::Attachment superAttachments[2];
+		superAttachments[0].init(m_superRT);
+		superAttachments[1].init(m_superDepthRT);
+		m_superFB = bgfx::createFrameBuffer(2, superAttachments);
+		bgfx::setViewFrameBuffer(kRenderPassSuperGeometry, m_superFB);
+		bgfx::setViewName(kRenderPassSuperGeometry, "ViewSuperGeometry");
+
+		m_naniteRB = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+		setName(m_naniteRB, "naniteRB");
 
 		m_samplerBase = bgfx::createUniform("samplerBase", bgfx::UniformType::Sampler);
 		m_samplerNanite = bgfx::createUniform("samplerNanite", bgfx::UniformType::Sampler);
 
 		m_baseRBTimer = 0xDEADBEEF;
 		m_naniteRBTimer = 0xDEADBEEF;
-		m_rbReady = false;
+		m_baseRBReady = false;
+		m_naniteRBReady = false;
 
 		m_basePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
 		m_nanitePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
@@ -253,7 +312,7 @@ public:
 	{
 		
 		float model[16];
-		bx::mtxTranslate(model, bunnyPos.x, bunnyPos.y, bunnyPos.z);
+		bx::mtxTranslate(model, m_bunnyPos.x, m_bunnyPos.y, m_bunnyPos.z);
 		bx::mtxRotateXY(model, 0.0f, 0.0f);
 
 		meshSubmit(m_mesh, viewId, m_program, model);
@@ -263,7 +322,7 @@ public:
 	{
 		const bgfx::Caps* caps = bgfx::getCaps();
 
-		bx::mtxLookAt(m_view, camPos, bunnyPos);
+		bx::mtxLookAt(m_view, m_camPos, m_bunnyPos);
 
 		float nearF = .1f;
 		float farF = 100.0f;
@@ -311,21 +370,34 @@ public:
 		bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
 		// This dummy draw call is here to make sure that view 0 is cleared
-		// if no other draw calls are submitted to view 0.
+		// if no other draw callGs are submitted to view 0.
 		bgfx::touch(kRenderPassNaniteGeometry);
 
-		const bx::Vec3 at = { 0.0f, 1.0f,  0.0f };
-		const bx::Vec3 eye = { 0.0f, 1.0f, -2.5f };
-
-		// Set view and projection matrix for view 0.
-		{
 			bgfx::setViewTransform(kRenderPassNaniteGeometry, m_view, m_proj);
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
-		}
+		
 		renderScene(kRenderPassNaniteGeometry);
 	}
+
+	void renderReference()
+	{
+		bgfx::setMarker("[DN] Nanite Pass");
+		bgfx::setState(BGFX_STATE_MSAA, 0);
+		bgfx::setViewRect(kRenderPassSuperGeometry, 0, 0,
+			uint16_t(m_width), uint16_t(m_height));
+		bgfx::touch(kRenderPassSuperGeometry);
+
+
+
+
+		bgfx::setViewTransform(kRenderPassSuperGeometry, m_view, m_proj);
+		bgfx::setViewRect(kRenderPassSuperGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
+
+		renderScene(kRenderPassSuperGeometry);
+	}
+
 
 	bool update() override
 	{
@@ -378,35 +450,57 @@ public:
 			translation = mul(normalize(translation), elapsedTimeF* 1.0f );
 
 	
-			camPos = add(camPos, translation);
+			m_camPos = add(m_camPos, translation);
 
 			updateViewMatrix();
 
 			renderBase();
 			renderNanite();
 
-			if (inputGetKeyState(entry::Key::KeyB) && !m_rbReady)
+			if (inputGetKeyState(entry::Key::KeyB) && !m_baseRBReady && !m_naniteRBReady)
 			{
 				bgfx::setMarker("[DN] Readback Pass");
 
-				m_rbReady = true;
+				m_baseRBReady = true;
 				bgfx::blit(kRenderPassCopyBack, m_baseRB, 0, 0, m_baseRT);
 				m_baseRBTimer = bgfx::readTexture(m_baseRB, m_basePixelBuffer);
-				//	bgfx::readTexture(m_naniteRT, &m_naniteRBTimer);
+
+
+				m_naniteRBReady = true;
+				bgfx::blit(kRenderPassCopyBack, m_naniteRB, 0, 0, m_naniteRT);
+				m_naniteRBTimer = bgfx::readTexture(m_naniteRB, m_nanitePixelBuffer);
 			}
 
 			if (m_frameNum == m_baseRBTimer + 2)
 			{
 				bx::FileWriter writer;
-				if (bx::open(&writer, "base.png", false, bx::ErrorAssert{}))
+				char nameBuffer[1024];
+				snprintf(nameBuffer, 1024, "%s_%d_%s.png", m_runPrefix,
+					m_baseRBTimer, "base");
+				if (bx::open(&writer, nameBuffer, false, bx::ErrorAssert{}))
 				{
 					//bimg::imageWriteTga(&writer, m_width, m_height, m_width*sizeof(uint32_t), m_basePixelBuffer, false, false, bx::ErrorAssert{});
 					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), m_basePixelBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
-
 					bx::close(&writer);
 				}
 
-				m_rbReady = false;
+				m_baseRBReady = false;
+			}
+
+			if (m_frameNum == m_naniteRBTimer + 2)
+			{
+				bx::FileWriter writer;
+				char nameBuffer[1024];
+				snprintf(nameBuffer, 1024, "%s_%d_%s.png", m_runPrefix,
+					m_naniteRBTimer, "nanite");
+				if (bx::open(&writer, nameBuffer, false, bx::ErrorAssert{}))
+				{
+					//bimg::imageWriteTga(&writer, m_width, m_height, m_width*sizeof(uint32_t), m_basePixelBuffer, false, false, bx::ErrorAssert{});
+					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), m_nanitePixelBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
+					bx::close(&writer);
+				}
+
+				m_naniteRBReady = false;
 			}
 
 			float proj[16];
@@ -430,10 +524,6 @@ public:
 
 			screenSpaceQuad(false);
 			bgfx::submit(kRenderPassCombine, m_displayProgram);
-
-
-		
-
 
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
@@ -473,11 +563,25 @@ public:
 	bgfx::FrameBufferHandle m_naniteFB;
 	bgfx::TextureHandle m_naniteRB;
 
+
+	bgfx::TextureHandle m_superRT;
+	bgfx::TextureHandle m_superDepthRT;
+	bgfx::FrameBufferHandle m_superFB;
+	bgfx::TextureHandle m_superAccumRT;
+	bgfx::TextureHandle m_superAccumFB;
+	bgfx::TextureHandle m_superAccumRB;
+
+
 	uint32_t m_baseRBTimer;
 	uint32_t m_naniteRBTimer;
-	bool m_rbReady;
+	uint32_t m_referenceRBTimer;
+	bool m_baseRBReady;
+	bool m_naniteRBReady;
+	bool m_referenceRBReady;
+
 	uint8_t* m_basePixelBuffer;
 	uint8_t* m_nanitePixelBuffer;
+	float* m_superPixelBuffer;
 
 
 	bgfx::UniformHandle m_samplerBase;
@@ -485,23 +589,19 @@ public:
 
 	const bgfx::ViewId kRenderPassBaseGeometry = 1;
 	const bgfx::ViewId kRenderPassNaniteGeometry = 2;
-	const bgfx::ViewId kRenderPassCopyBack = 3;
-	const bgfx::ViewId kRenderPassCombine = 4;
+	const bgfx::ViewId kRenderPassSuperGeometry = 3;
+	const bgfx::ViewId kRenderPassSuperAccumulate = 4;
+	const bgfx::ViewId kRenderPassCopyBack = 5;
+	const bgfx::ViewId kRenderPassCombine = 6;
 
 
-	enum RenderPassType
-	{
-		BasePass = 1,
-		NanitePass = 2,
-		CombinePass = 3
-	};
-
-
-	bx::Vec3 camPos;
+	bx::Vec3 m_camPos;
 	float m_view[16];
 	float m_proj[16];
 
-	bx::Vec3 bunnyPos;
+	bx::Vec3 m_bunnyPos;
+
+	char* m_runPrefix;
 };
 
 } // namespace

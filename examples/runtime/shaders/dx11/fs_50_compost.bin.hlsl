@@ -692,12 +692,17 @@ float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
 float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
 return wpos.xyz / wpos.w;
 }
-uniform SamplerState s_albedoSampler : register( s[0] ); uniform Texture2D s_albedoTexture : register( t[0] ); static BgfxSampler2D s_albedo = { s_albedoSampler, s_albedoTexture };
-uniform SamplerState s_lightSampler : register( s[1] ); uniform Texture2D s_lightTexture : register( t[1] ); static BgfxSampler2D s_light = { s_lightSampler, s_lightTexture };
+uniform SamplerState baseSamplerSampler : register( s[0] ); uniform Texture2D baseSamplerTexture : register( t[0] ); static BgfxSampler2D baseSampler = { baseSamplerSampler, baseSamplerTexture };
+uniform SamplerState naniteSamplerSampler : register( s[1] ); uniform Texture2D naniteSamplerTexture : register( t[1] ); static BgfxSampler2D naniteSampler = { naniteSamplerSampler, naniteSamplerTexture };
 void main( float4 gl_FragCoord : SV_POSITION , float2 v_texcoord0 : TEXCOORD0 , out float4 bgfx_FragData0 : SV_TARGET0 )
 {
 float4 bgfx_VoidFrag = vec4_splat(0.0);
-float4 albedo = bgfxTexture2D(s_albedo, v_texcoord0);
-float4 light = bgfxTexture2D(s_light, v_texcoord0);
-bgfx_FragData0 = albedo*light;
+float3 luminance = float3(.3, .59, .11);
+float4 base = bgfxTexture2D(baseSampler, v_texcoord0);
+float4 nanite = bgfxTexture2D(naniteSampler, v_texcoord0);
+float4 color = 0;
+color.r = dot(luminance, base.rgb);
+color.g = dot(luminance, nanite.rgb);
+color.a = 1.0;
+bgfx_FragData0 = color;
 }
