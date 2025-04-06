@@ -36,6 +36,6 @@ void main()
 	vec3 normal = normalize(v_normal);
 	vec3 view = normalize(v_view);
 
-	gl_FragColor.xyz = dot(normal, lightDir);
+	gl_FragColor.xyz = .5;// dot(normal, lightDir);
 	gl_FragColor.w = 1.0;
 }

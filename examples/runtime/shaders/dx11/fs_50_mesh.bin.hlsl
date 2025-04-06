@@ -717,6 +717,6 @@ float4 bgfx_VoidFrag = vec4_splat(0.0);
 float3 lightDir = float3(0.0, 0.0, -1.0);
 float3 normal = normalize(v_normal);
 float3 view = normalize(v_view);
-bgfx_FragData0.xyz = dot(normal, lightDir);
+bgfx_FragData0.xyz = .5;
 bgfx_FragData0.w = 1.0;
 }
