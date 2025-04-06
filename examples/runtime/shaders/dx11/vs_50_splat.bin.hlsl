@@ -1,6 +1,11 @@
 // shaderc command line:
-// .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_compost.sc -o ..\runtime\shaders\dx11\fs_50_compost.bin --type f --platform windows --debug --profile s_5_0 -i .\..\..\src
+// .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_splat.sc -o ..\runtime\shaders\dx11\vs_50_splat.bin --type v --platform windows --debug --profile s_5_0 -i .\..\..\src
 
+struct Output
+{
+float4 gl_Position : SV_POSITION;
+float2 v_texcoord0 : TEXCOORD0;
+};
 float intBitsToFloat(int _x) { return asfloat(_x); }
 float2 intBitsToFloat(uint2 _x) { return asfloat(_x); }
 float3 intBitsToFloat(uint3 _x) { return asfloat(_x); }
@@ -346,18 +351,18 @@ float3x3 mtxFromCols(float3 _0, float3 _1, float3 _2)
 {
 return transpose(float3x3(_0, _1, _2) );
 }
-uniform float4 u_viewRect;
-uniform float4 u_viewTexel;
-uniform float4x4 u_view;
-uniform float4x4 u_invView;
-uniform float4x4 u_proj;
-uniform float4x4 u_invProj;
-uniform float4x4 u_viewProj;
-uniform float4x4 u_invViewProj;
-uniform float4x4 u_model[32];
-uniform float4x4 u_modelView;
+static float4 u_viewRect;
+static float4 u_viewTexel;
+static float4x4 u_view;
+static float4x4 u_invView;
+static float4x4 u_proj;
+static float4x4 u_invProj;
+static float4x4 u_viewProj;
+static float4x4 u_invViewProj;
+static float4x4 u_model[32];
+static float4x4 u_modelView;
 uniform float4x4 u_modelViewProj;
-uniform float4 u_alphaRef4;
+static float4 u_alphaRef4;
 float4 encodeRE8(float _r)
 {
 float exponent = ceil(log2(_r) );
@@ -692,20 +697,9 @@ float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
 float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
 return wpos.xyz / wpos.w;
 }
-uniform SamplerState baseSamplerSampler : register( s[0] ); uniform Texture2D baseSamplerTexture : register( t[0] ); static BgfxSampler2D baseSampler = { baseSamplerSampler, baseSamplerTexture };
-uniform SamplerState naniteSamplerSampler : register( s[1] ); uniform Texture2D naniteSamplerTexture : register( t[1] ); static BgfxSampler2D naniteSampler = { naniteSamplerSampler, naniteSamplerTexture };
-uniform SamplerState referenceSamplerSampler : register( s[2] ); uniform Texture2D referenceSamplerTexture : register( t[2] ); static BgfxSampler2D referenceSampler = { referenceSamplerSampler, referenceSamplerTexture };
-void main( float4 gl_FragCoord : SV_POSITION , float2 v_texcoord0 : TEXCOORD0 , out float4 bgfx_FragData0 : SV_TARGET0 )
+Output main( float3 a_position : POSITION , float2 a_texcoord0 : TEXCOORD0) { Output _varying_; _varying_.v_texcoord0 = float2(0.0, 0.0);;
 {
-float4 bgfx_VoidFrag = vec4_splat(0.0);
-float3 luminance = float3(.3, .59, .11);
-float4 base = bgfxTexture2D(baseSampler, v_texcoord0);
-float4 nanite = bgfxTexture2D(naniteSampler, v_texcoord0);
-float4 reference = bgfxTexture2D(referenceSampler, v_texcoord0);
-float4 color = 0;
-color.r = dot(luminance, base.rgb);
-color.g = dot(luminance, nanite.rgb);
-color.b = dot(luminance, reference.rgb);
-color.a = 1.0;
-bgfx_FragData0 = color;
+_varying_.gl_Position = mul(u_modelViewProj, float4(a_position, 1.0) );
+_varying_.v_texcoord0 = a_texcoord0;
+} return _varying_;
 }

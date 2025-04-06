@@ -239,7 +239,7 @@ void showExampleDialog(entry::AppI* _app, const char* _errorText)
 		ImGui::PopStyleVar();
 	}
 
-#if 0
+#if 1
 	{
 		bgfx::RendererType::Enum supportedRenderers[bgfx::RendererType::Count];
 		uint8_t num = bgfx::getSupportedRenderers(BX_COUNTOF(supportedRenderers), supportedRenderers);

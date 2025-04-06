@@ -2,3 +2,5 @@
 .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_mesh.sc -o ..\runtime\shaders\dx11\fs_50_mesh.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src
  .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_compost.sc -o ..\runtime\shaders\dx11\vs_50_compost.bin  --type v --platform windows --debug --profile s_5_0 -i .\..\..\src
 .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_compost.sc -o ..\runtime\shaders\dx11\fs_50_compost.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src
+.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_splat.sc -o ..\runtime\shaders\dx11\vs_50_splat.bin  --type v --platform windows --debug --profile s_5_0 -i .\..\..\src
+.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_splat.sc -o ..\runtime\shaders\dx11\fs_50_splat.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src

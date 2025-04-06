@@ -4,13 +4,14 @@
  */
 
 #include "common.h"
-#include "bgfx/bgfx.h"
-#include "bgfx_utils.h"
 
 
 #include <bx/allocator.h>
 #include <bx/file.h>
 #include <bx/string.h>
+
+#include "bgfx/bgfx.h"
+#include "bgfx_utils.h"
 
 #include "imgui/imgui.h"
 #include <entry/input.h>
@@ -18,6 +19,11 @@
 #include <iostream>
 #include <format>
 #include <chrono>
+
+namespace bgfx
+{
+	void renderDocTriggerCapture();
+}
 
 namespace
 {
@@ -100,6 +106,8 @@ public:
 		bgfx::init(init);
 
 		m_frameNum = 0;
+		m_shouldUpdate = true;
+		m_logicalTime = 0;
 
 		// Enable debug text.
 		bgfx::setDebug(m_debug);
@@ -120,23 +128,26 @@ public:
 			, 0
 		);
 
+		for (int i = 0; i < m_superSamples; ++i)
+		{
+			bgfx::setViewClear(kRenderPassReferenceGeometry + uint16_t(2*i)
+				, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+				, 0x000000FF
+				, 1.0f
+				, 0
+			);
 
-		// Set geometry pass view clear state.
-		bgfx::setViewClear(kRenderPassSuperGeometry
-			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-			, 0x000000FF
-			, 1.0f
-			, 0
-		);
+			uint16_t clearFlags = i == 0 ? 0 : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH;
+			bgfx::setViewClear(kRenderPassReferenceAccum + uint16_t(2 * i)
+				, clearFlags
+				, 0x000000FF
+				, 1.0f
+				, 0
+			);
 
-		// Set geometry pass view clear state.
-		bgfx::setViewClear(kRenderPassSuperAccumulate
-			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-			, 0x000000FF
-			, 1.0f
-			, 0
-		);
+		}
 
+	
 		// Set geometry pass view clear state.
 		bgfx::setViewClear(kRenderPassCombine
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
@@ -152,6 +163,8 @@ public:
 		// Create program from shaders.
 		m_program = loadProgram("vs_50_mesh", "fs_50_mesh");
 		m_displayProgram = loadProgram("vs_50_compost", "fs_50_compost");
+		m_splatProgram = loadProgram("vs_50_splat", "fs_50_splat");
+
 
 		m_mesh = meshLoad("meshes/bunny.bin");
 
@@ -205,31 +218,57 @@ public:
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
 		setName(m_naniteRB, "naniteRB");
 
-		m_superRT = bgfx::createTexture2D(
+		m_referenceRT = bgfx::createTexture2D(
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, bilinearFlags);
-		m_superDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
+		m_referenceDepthRT = bgfx::createTexture2D(uint16_t(m_width), uint16_t(m_height), false, 1, depthFormat, BGFX_TEXTURE_RT);
 
-		bgfx::Attachment superAttachments[2];
-		superAttachments[0].init(m_superRT);
-		superAttachments[1].init(m_superDepthRT);
-		m_superFB = bgfx::createFrameBuffer(2, superAttachments);
-		bgfx::setViewFrameBuffer(kRenderPassSuperGeometry, m_superFB);
-		bgfx::setViewName(kRenderPassSuperGeometry, "ViewSuperGeometry");
+		bgfx::Attachment referenceAttachments[2];
+		referenceAttachments[0].init(m_referenceRT);
+		referenceAttachments[1].init(m_referenceDepthRT);
+		m_referenceFB = bgfx::createFrameBuffer(2, referenceAttachments);
 
-		m_naniteRB = bgfx::createTexture2D(
-			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
-		setName(m_naniteRB, "naniteRB");
+		for (int i = 0; i < m_superSamples; ++i)
+		{
+			bgfx::setViewFrameBuffer(kRenderPassReferenceGeometry + uint16_t(i*2), m_referenceFB);
+			char buffer[1024];
+			snprintf(buffer, 1024, "ViewReferenceGeometry_%d", i);
+			bgfx::setViewName(kRenderPassReferenceGeometry + uint16_t(i * 2), buffer);
+		}
 
+		m_referenceAccumRT = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_RT);
+		setName(m_referenceAccumRT, "m_referenceAccumRT");
+
+		bgfx::Attachment referenceAccumAttachments[1];
+		referenceAccumAttachments[0].init(m_referenceAccumRT);
+		m_referenceAccumFB = bgfx::createFrameBuffer(1, referenceAccumAttachments);
+		m_referenceAccumRB = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+		setName(m_referenceAccumRB, "m_referenceAccumRB");
+
+		for (int i = 0; i < m_superSamples; ++i)
+		{
+			bgfx::setViewFrameBuffer(kRenderPassReferenceAccum + uint16_t(i * 2), m_referenceAccumFB);
+			char buffer[1024];
+			snprintf(buffer, 1024, "ViewSuperGeometry_%d", i);
+			bgfx::setViewName(kRenderPassReferenceGeometry + uint16_t(i * 2), buffer);
+		}
+
+		m_samplerSource = bgfx::createUniform("samplerSource", bgfx::UniformType::Sampler);
 		m_samplerBase = bgfx::createUniform("samplerBase", bgfx::UniformType::Sampler);
 		m_samplerNanite = bgfx::createUniform("samplerNanite", bgfx::UniformType::Sampler);
+		m_samplerReference = bgfx::createUniform("samplerSuper", bgfx::UniformType::Sampler);
 
 		m_baseRBTimer = 0xDEADBEEF;
 		m_naniteRBTimer = 0xDEADBEEF;
+		m_referenceRBTimer = 0xDEADBEEF;
 		m_baseRBReady = false;
 		m_naniteRBReady = false;
+		m_referenceRBReady = false;
 
 		m_basePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
 		m_nanitePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
+		m_referencePixelBuffer = (float*)malloc(sizeof(float) * 4 * m_width * m_height);
 
 		m_timeOffset = bx::getHPCounter();
 
@@ -364,7 +403,7 @@ public:
 	{
 		bgfx::setMarker("[DN] Nanite Pass");
 
-		bgfx::setState(BGFX_STATE_MSAA, 1);
+		bgfx::setState(BGFX_STATE_MSAA);
 
 		// Set view 0 default viewport.
 		bgfx::setViewRect(kRenderPassNaniteGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
@@ -383,19 +422,45 @@ public:
 
 	void renderReference()
 	{
-		bgfx::setMarker("[DN] Nanite Pass");
-		bgfx::setState(BGFX_STATE_MSAA, 0);
-		bgfx::setViewRect(kRenderPassSuperGeometry, 0, 0,
+		bgfx::setMarker("[DN] Reference Pass");
+		bgfx::setState(0);
+
+		bgfx::setViewRect(kRenderPassReferenceGeometry, 0, 0,
 			uint16_t(m_width), uint16_t(m_height));
-		bgfx::touch(kRenderPassSuperGeometry);
+		bgfx::touch(kRenderPassReferenceGeometry);
 
 
 
 
-		bgfx::setViewTransform(kRenderPassSuperGeometry, m_view, m_proj);
-		bgfx::setViewRect(kRenderPassSuperGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
+		bgfx::setViewTransform(kRenderPassReferenceGeometry, m_view, m_proj);
+		bgfx::setViewRect(kRenderPassReferenceGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-		renderScene(kRenderPassSuperGeometry);
+		renderScene(kRenderPassReferenceGeometry);
+
+
+		float proj[16];
+		const bgfx::Caps* caps = bgfx::getCaps();
+		bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
+		bgfx::setViewTransform(kRenderPassReferenceAccum, NULL, proj);
+
+		bgfx::setViewRect(kRenderPassReferenceAccum, 0, 0, uint16_t(m_width), uint16_t(m_height));
+
+
+		bgfx::touch(kRenderPassReferenceAccum);
+		bgfx::setMarker("[DN] Reference accum Pass");
+		// Combine color and light buffers.
+		bgfx::setTexture(0, m_samplerSource, m_referenceRT);
+		bgfx::setState(0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_BLEND_ALPHA
+			| BGFX_STATE_BLEND_ADD
+			| BGFX_STATE_BLEND_SRC_COLOR
+			| BGFX_STATE_BLEND_DST_COLOR
+		);
+
+		screenSpaceQuad(false);
+		bgfx::submit(kRenderPassReferenceAccum, m_splatProgram);
 	}
 
 
@@ -410,6 +475,8 @@ public:
 
 			float elapsedTimeF = (float)((elapsedTime) / double(bx::getHPFrequency()));
 			float time = (float)((currentTime) / double(bx::getHPFrequency()));
+
+			if(m_shouldUpdate)
 
 			bgfx::setUniform(u_time, &time);
 			/*
@@ -454,10 +521,20 @@ public:
 
 			updateViewMatrix();
 
+			bool captureRequest = inputGetKeyState(entry::Key::KeyV);
+			if (captureRequest)
+			{
+				bgfx::renderDocTriggerCapture();
+			}
+
 			renderBase();
 			renderNanite();
+			renderReference();
 
-			if (inputGetKeyState(entry::Key::KeyB) && !m_baseRBReady && !m_naniteRBReady)
+
+			bool captureKey = inputGetKeyState(entry::Key::KeyB)
+				|| inputGetKeyState(entry::Key::KeyV);
+			if (captureKey && !m_baseRBReady && !m_naniteRBReady)
 			{
 				bgfx::setMarker("[DN] Readback Pass");
 
@@ -517,6 +594,7 @@ public:
 			// Combine color and light buffers.
 			bgfx::setTexture(0, m_samplerBase, m_baseRT);
 			bgfx::setTexture(1, m_samplerNanite, m_naniteRT);
+			bgfx::setTexture(2, m_samplerReference, m_referenceAccumRT);
 			bgfx::setState(0
 				| BGFX_STATE_WRITE_RGB
 				| BGFX_STATE_WRITE_A
@@ -545,12 +623,16 @@ public:
 	int64_t m_timeOffset;
 	int64_t m_time;
 	uint32_t m_frameNum;
+	bool m_shouldUpdate;
+	float m_logicalTime;
+
 
 	bx::Vec3 m_fov;
 
 	Mesh* m_mesh;
 	bgfx::ProgramHandle m_program;
 	bgfx::ProgramHandle m_displayProgram;
+	bgfx::ProgramHandle m_splatProgram;
 	bgfx::UniformHandle u_time;
 
 	bgfx::TextureHandle m_baseRT;
@@ -564,12 +646,12 @@ public:
 	bgfx::TextureHandle m_naniteRB;
 
 
-	bgfx::TextureHandle m_superRT;
-	bgfx::TextureHandle m_superDepthRT;
-	bgfx::FrameBufferHandle m_superFB;
-	bgfx::TextureHandle m_superAccumRT;
-	bgfx::TextureHandle m_superAccumFB;
-	bgfx::TextureHandle m_superAccumRB;
+	bgfx::TextureHandle m_referenceRT;
+	bgfx::TextureHandle m_referenceDepthRT;
+	bgfx::FrameBufferHandle m_referenceFB;
+	bgfx::TextureHandle m_referenceAccumRT;
+	bgfx::FrameBufferHandle m_referenceAccumFB;
+	bgfx::TextureHandle m_referenceAccumRB;
 
 
 	uint32_t m_baseRBTimer;
@@ -581,19 +663,25 @@ public:
 
 	uint8_t* m_basePixelBuffer;
 	uint8_t* m_nanitePixelBuffer;
-	float* m_superPixelBuffer;
+	float* m_referencePixelBuffer;
 
+	//splat shader
+	bgfx::UniformHandle m_samplerSource;
 
 	bgfx::UniformHandle m_samplerBase;
 	bgfx::UniformHandle m_samplerNanite;
+	bgfx::UniformHandle m_samplerReference;
 
 	const bgfx::ViewId kRenderPassBaseGeometry = 1;
-	const bgfx::ViewId kRenderPassNaniteGeometry = 2;
-	const bgfx::ViewId kRenderPassSuperGeometry = 3;
-	const bgfx::ViewId kRenderPassSuperAccumulate = 4;
-	const bgfx::ViewId kRenderPassCopyBack = 5;
-	const bgfx::ViewId kRenderPassCombine = 6;
+	const bgfx::ViewId kRenderPassNaniteGeometry = kRenderPassBaseGeometry + 1;
 
+	const bgfx::ViewId kRenderPassReferenceGeometry = kRenderPassNaniteGeometry + 1;
+	const bgfx::ViewId kRenderPassReferenceAccum = kRenderPassReferenceGeometry + 1;
+
+	const uint16_t m_superSamples = 1;
+
+	const bgfx::ViewId kRenderPassCopyBack = kRenderPassReferenceAccum + 2* m_superSamples + 1;
+	const bgfx::ViewId kRenderPassCombine = kRenderPassCopyBack + 1;
 
 	bx::Vec3 m_camPos;
 	float m_view[16];
@@ -602,6 +690,7 @@ public:
 	bx::Vec3 m_bunnyPos;
 
 	char* m_runPrefix;
+
 };
 
 } // namespace

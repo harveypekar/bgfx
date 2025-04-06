@@ -1,0 +1,1436 @@
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_mesh.sc -o ..\runtime\shaders\dx11\vs_50_mesh.bin  --type v --platform windows --debug --profile s_5_0 -i .\..\..\src 
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_mesh.sc -o ..\runtime\shaders\dx11\fs_50_mesh.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src 
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_compost.sc -o ..\runtime\shaders\dx11\vs_50_compost.bin  --type v --platform windows --debug --profile s_5_0 -i .\..\..\src 
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_compost.sc -o ..\runtime\shaders\dx11\fs_50_compost.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src 
+Code:
+---
+      1: // shaderc command line:
+      2: // .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_compost.sc -o ..\runtime\shaders\dx11\fs_50_compost.bin --type f --platform windows --debug --profile s_5_0 -i .\..\..\src
+      3: 
+      4: float intBitsToFloat(int _x) { return asfloat(_x); }
+      5: float2 intBitsToFloat(uint2 _x) { return asfloat(_x); }
+      6: float3 intBitsToFloat(uint3 _x) { return asfloat(_x); }
+      7: float4 intBitsToFloat(uint4 _x) { return asfloat(_x); }
+      8: float uintBitsToFloat(uint _x) { return asfloat(_x); }
+      9: float2 uintBitsToFloat(uint2 _x) { return asfloat(_x); }
+     10: float3 uintBitsToFloat(uint3 _x) { return asfloat(_x); }
+     11: float4 uintBitsToFloat(uint4 _x) { return asfloat(_x); }
+     12: uint floatBitsToUint(float _x) { return asuint(_x); }
+     13: uint2 floatBitsToUint(float2 _x) { return asuint(_x); }
+     14: uint3 floatBitsToUint(float3 _x) { return asuint(_x); }
+     15: uint4 floatBitsToUint(float4 _x) { return asuint(_x); }
+     16: int floatBitsToInt(float _x) { return asint(_x); }
+     17: int2 floatBitsToInt(float2 _x) { return asint(_x); }
+     18: int3 floatBitsToInt(float3 _x) { return asint(_x); }
+     19: int4 floatBitsToInt(float4 _x) { return asint(_x); }
+     20: uint bitfieldReverse(uint _x) { return reversebits(_x); }
+     21: uint2 bitfieldReverse(uint2 _x) { return reversebits(_x); }
+     22: uint3 bitfieldReverse(uint3 _x) { return reversebits(_x); }
+     23: uint4 bitfieldReverse(uint4 _x) { return reversebits(_x); }
+     24: uint packHalf2x16(float2 _x)
+     25: {
+     26: return (f32tof16(_x.y)<<16) | f32tof16(_x.x);
+     27: }
+     28: float2 unpackHalf2x16(uint _x)
+     29: {
+     30: return float2(f16tof32(_x & 0xffff), f16tof32(_x >> 16) );
+     31: }
+     32: struct BgfxSampler2D
+     33: {
+     34: SamplerState m_sampler;
+     35: Texture2D m_texture;
+     36: };
+     37: struct BgfxISampler2D
+     38: {
+     39: Texture2D<int4> m_texture;
+     40: };
+     41: struct BgfxUSampler2D
+     42: {
+     43: Texture2D<uint4> m_texture;
+     44: };
+     45: struct BgfxSampler2DArray
+     46: {
+     47: SamplerState m_sampler;
+     48: Texture2DArray m_texture;
+     49: };
+     50: struct BgfxSampler2DShadow
+     51: {
+     52: SamplerComparisonState m_sampler;
+     53: Texture2D m_texture;
+     54: };
+     55: struct BgfxSampler2DArrayShadow
+     56: {
+     57: SamplerComparisonState m_sampler;
+     58: Texture2DArray m_texture;
+     59: };
+     60: struct BgfxSampler3D
+     61: {
+     62: SamplerState m_sampler;
+     63: Texture3D m_texture;
+     64: };
+     65: struct BgfxISampler3D
+     66: {
+     67: Texture3D<int4> m_texture;
+     68: };
+     69: struct BgfxUSampler3D
+     70: {
+     71: Texture3D<uint4> m_texture;
+     72: };
+     73: struct BgfxSamplerCube
+     74: {
+     75: SamplerState m_sampler;
+     76: TextureCube m_texture;
+     77: };
+     78: struct BgfxSamplerCubeShadow
+     79: {
+     80: SamplerComparisonState m_sampler;
+     81: TextureCube m_texture;
+     82: };
+     83: struct BgfxSampler2DMS
+     84: {
+     85: Texture2DMS<float4> m_texture;
+     86: };
+     87: float4 bgfxTexture2D(BgfxSampler2D _sampler, float2 _coord)
+     88: {
+     89: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+     90: }
+     91: float4 bgfxTexture2DBias(BgfxSampler2D _sampler, float2 _coord, float _bias)
+     92: {
+     93: return _sampler.m_texture.SampleBias(_sampler.m_sampler, _coord, _bias);
+     94: }
+     95: float4 bgfxTexture2DLod(BgfxSampler2D _sampler, float2 _coord, float _level)
+     96: {
+     97: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+     98: }
+     99: float4 bgfxTexture2DLodOffset(BgfxSampler2D _sampler, float2 _coord, float _level, int2 _offset)
+    100: {
+    101: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
+    102: }
+    103: float4 bgfxTexture2DProj(BgfxSampler2D _sampler, float3 _coord)
+    104: {
+    105: float2 coord = _coord.xy * rcp(_coord.z);
+    106: return _sampler.m_texture.Sample(_sampler.m_sampler, coord);
+    107: }
+    108: float4 bgfxTexture2DProj(BgfxSampler2D _sampler, float4 _coord)
+    109: {
+    110: float2 coord = _coord.xy * rcp(_coord.w);
+    111: return _sampler.m_texture.Sample(_sampler.m_sampler, coord);
+    112: }
+    113: float4 bgfxTexture2DGrad(BgfxSampler2D _sampler, float2 _coord, float2 _dPdx, float2 _dPdy)
+    114: {
+    115: return _sampler.m_texture.SampleGrad(_sampler.m_sampler, _coord, _dPdx, _dPdy);
+    116: }
+    117: float4 bgfxTexture2DArray(BgfxSampler2DArray _sampler, float3 _coord)
+    118: {
+    119: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    120: }
+    121: float4 bgfxTexture2DArrayLod(BgfxSampler2DArray _sampler, float3 _coord, float _lod)
+    122: {
+    123: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _lod);
+    124: }
+    125: float4 bgfxTexture2DArrayLodOffset(BgfxSampler2DArray _sampler, float3 _coord, float _level, int2 _offset)
+    126: {
+    127: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
+    128: }
+    129: float bgfxShadow2D(BgfxSampler2DShadow _sampler, float3 _coord)
+    130: {
+    131: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xy, _coord.z);
+    132: }
+    133: float bgfxShadow2DProj(BgfxSampler2DShadow _sampler, float4 _coord)
+    134: {
+    135: float3 coord = _coord.xyz * rcp(_coord.w);
+    136: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, coord.xy, coord.z);
+    137: }
+    138: float2 bgfxTextureSize(BgfxSampler2DShadow _sampler, int _lod)
+    139: {
+    140: float2 result;
+    141: float numberOfMipMapLevels;
+    142: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    143: return result;
+    144: }
+    145: float4 bgfxShadow2DArray(BgfxSampler2DArrayShadow _sampler, float4 _coord)
+    146: {
+    147: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xyz, _coord.w);
+    148: }
+    149: float2 bgfxTextureSize(BgfxSampler2DArrayShadow _sampler, int _lod)
+    150: {
+    151: float2 result;
+    152: float numberOfMipMapLevels;
+    153: float numberOfElements;
+    154: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfElements, numberOfMipMapLevels);
+    155: return result;
+    156: }
+    157: float4 bgfxTexture3D(BgfxSampler3D _sampler, float3 _coord)
+    158: {
+    159: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    160: }
+    161: float4 bgfxTexture3DLod(BgfxSampler3D _sampler, float3 _coord, float _level)
+    162: {
+    163: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+    164: }
+    165: int4 bgfxTexture3D(BgfxISampler3D _sampler, float3 _coord)
+    166: {
+    167: uint3 size;
+    168: _sampler.m_texture.GetDimensions(size.x, size.y, size.z);
+    169: return _sampler.m_texture.Load(int4(_coord * size, 0) );
+    170: }
+    171: uint4 bgfxTexture3D(BgfxUSampler3D _sampler, float3 _coord)
+    172: {
+    173: uint3 size;
+    174: _sampler.m_texture.GetDimensions(size.x, size.y, size.z);
+    175: return _sampler.m_texture.Load(int4(_coord * size, 0) );
+    176: }
+    177: float4 bgfxTextureCube(BgfxSamplerCube _sampler, float3 _coord)
+    178: {
+    179: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    180: }
+    181: float4 bgfxTextureCubeBias(BgfxSamplerCube _sampler, float3 _coord, float _bias)
+    182: {
+    183: return _sampler.m_texture.SampleBias(_sampler.m_sampler, _coord, _bias);
+    184: }
+    185: float4 bgfxTextureCubeLod(BgfxSamplerCube _sampler, float3 _coord, float _level)
+    186: {
+    187: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+    188: }
+    189: float bgfxShadowCube(BgfxSamplerCubeShadow _sampler, float4 _coord)
+    190: {
+    191: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xyz, _coord.w);
+    192: }
+    193: float4 bgfxTexelFetch(BgfxSampler2D _sampler, int2 _coord, int _lod)
+    194: {
+    195: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    196: }
+    197: float4 bgfxTexelFetchOffset(BgfxSampler2D _sampler, int2 _coord, int _lod, int2 _offset)
+    198: {
+    199: return _sampler.m_texture.Load(int3(_coord, _lod), _offset );
+    200: }
+    201: float2 bgfxTextureSize(BgfxSampler2D _sampler, int _lod)
+    202: {
+    203: float2 result;
+    204: float numberOfMipMapLevels;
+    205: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    206: return result;
+    207: }
+    208: float2 bgfxTextureSize(BgfxISampler2D _sampler, int _lod)
+    209: {
+    210: float2 result;
+    211: float numberOfMipMapLevels;
+    212: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    213: return result;
+    214: }
+    215: float2 bgfxTextureSize(BgfxUSampler2D _sampler, int _lod)
+    216: {
+    217: float2 result;
+    218: float numberOfMipMapLevels;
+    219: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    220: return result;
+    221: }
+    222: float4 bgfxTextureGather0(BgfxSampler2D _sampler, float2 _coord)
+    223: {
+    224: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+    225: }
+    226: float4 bgfxTextureGather1(BgfxSampler2D _sampler, float2 _coord)
+    227: {
+    228: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+    229: }
+    230: float4 bgfxTextureGather2(BgfxSampler2D _sampler, float2 _coord)
+    231: {
+    232: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+    233: }
+    234: float4 bgfxTextureGather3(BgfxSampler2D _sampler, float2 _coord)
+    235: {
+    236: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
+    237: }
+    238: float4 bgfxTextureGatherOffset0(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    239: {
+    240: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord, _offset);
+    241: }
+    242: float4 bgfxTextureGatherOffset1(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    243: {
+    244: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord, _offset);
+    245: }
+    246: float4 bgfxTextureGatherOffset2(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    247: {
+    248: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord, _offset);
+    249: }
+    250: float4 bgfxTextureGatherOffset3(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    251: {
+    252: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord, _offset);
+    253: }
+    254: float4 bgfxTextureGather0(BgfxSampler2DArray _sampler, float3 _coord)
+    255: {
+    256: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+    257: }
+    258: float4 bgfxTextureGather1(BgfxSampler2DArray _sampler, float3 _coord)
+    259: {
+    260: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+    261: }
+    262: float4 bgfxTextureGather2(BgfxSampler2DArray _sampler, float3 _coord)
+    263: {
+    264: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+    265: }
+    266: float4 bgfxTextureGather3(BgfxSampler2DArray _sampler, float3 _coord)
+    267: {
+    268: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
+    269: }
+    270: int4 bgfxTexelFetch(BgfxISampler2D _sampler, int2 _coord, int _lod)
+    271: {
+    272: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    273: }
+    274: uint4 bgfxTexelFetch(BgfxUSampler2D _sampler, int2 _coord, int _lod)
+    275: {
+    276: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    277: }
+    278: float4 bgfxTexelFetch(BgfxSampler2DMS _sampler, int2 _coord, int _sampleIdx)
+    279: {
+    280: return _sampler.m_texture.Load(_coord, _sampleIdx);
+    281: }
+    282: float4 bgfxTexelFetch(BgfxSampler2DArray _sampler, int3 _coord, int _lod)
+    283: {
+    284: return _sampler.m_texture.Load(int4(_coord, _lod) );
+    285: }
+    286: float4 bgfxTexelFetch(BgfxSampler3D _sampler, int3 _coord, int _lod)
+    287: {
+    288: return _sampler.m_texture.Load(int4(_coord, _lod) );
+    289: }
+    290: float3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
+    291: {
+    292: float3 result;
+    293: float numberOfMipMapLevels;
+    294: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+    295: return result;
+    296: }
+    297: float3 instMul(float3 _vec, float3x3 _mtx) { return mul(_mtx, _vec); }
+    298: float3 instMul(float3x3 _mtx, float3 _vec) { return mul(_vec, _mtx); }
+    299: float4 instMul(float4 _vec, float4x4 _mtx) { return mul(_mtx, _vec); }
+    300: float4 instMul(float4x4 _mtx, float4 _vec) { return mul(_vec, _mtx); }
+    301: bool2 lessThan(float2 _a, float2 _b) { return _a < _b; }
+    302: bool3 lessThan(float3 _a, float3 _b) { return _a < _b; }
+    303: bool4 lessThan(float4 _a, float4 _b) { return _a < _b; }
+    304: bool2 lessThanEqual(float2 _a, float2 _b) { return _a <= _b; }
+    305: bool3 lessThanEqual(float3 _a, float3 _b) { return _a <= _b; }
+    306: bool4 lessThanEqual(float4 _a, float4 _b) { return _a <= _b; }
+    307: bool2 greaterThan(float2 _a, float2 _b) { return _a > _b; }
+    308: bool3 greaterThan(float3 _a, float3 _b) { return _a > _b; }
+    309: bool4 greaterThan(float4 _a, float4 _b) { return _a > _b; }
+    310: bool2 greaterThanEqual(float2 _a, float2 _b) { return _a >= _b; }
+    311: bool3 greaterThanEqual(float3 _a, float3 _b) { return _a >= _b; }
+    312: bool4 greaterThanEqual(float4 _a, float4 _b) { return _a >= _b; }
+    313: bool2 notEqual(float2 _a, float2 _b) { return _a != _b; }
+    314: bool3 notEqual(float3 _a, float3 _b) { return _a != _b; }
+    315: bool4 notEqual(float4 _a, float4 _b) { return _a != _b; }
+    316: bool2 equal(float2 _a, float2 _b) { return _a == _b; }
+    317: bool3 equal(float3 _a, float3 _b) { return _a == _b; }
+    318: bool4 equal(float4 _a, float4 _b) { return _a == _b; }
+    319: float mix(float _a, float _b, float _t) { return lerp(_a, _b, _t); }
+    320: float2 mix(float2 _a, float2 _b, float2 _t) { return lerp(_a, _b, _t); }
+    321: float3 mix(float3 _a, float3 _b, float3 _t) { return lerp(_a, _b, _t); }
+    322: float4 mix(float4 _a, float4 _b, float4 _t) { return lerp(_a, _b, _t); }
+    323: float mod(float _a, float _b) { return _a - _b * floor(_a / _b); }
+    324: float2 mod(float2 _a, float2 _b) { return _a - _b * floor(_a / _b); }
+    325: float3 mod(float3 _a, float3 _b) { return _a - _b * floor(_a / _b); }
+    326: float4 mod(float4 _a, float4 _b) { return _a - _b * floor(_a / _b); }
+    327: float2 vec2_splat(float _x) { return float2(_x, _x); }
+    328: float3 vec3_splat(float _x) { return float3(_x, _x, _x); }
+    329: float4 vec4_splat(float _x) { return float4(_x, _x, _x, _x); }
+    330: uint2 uvec2_splat(uint _x) { return uint2(_x, _x); }
+    331: uint3 uvec3_splat(uint _x) { return uint3(_x, _x, _x); }
+    332: uint4 uvec4_splat(uint _x) { return uint4(_x, _x, _x, _x); }
+    333: float4x4 mtxFromRows(float4 _0, float4 _1, float4 _2, float4 _3)
+    334: {
+    335: return float4x4(_0, _1, _2, _3);
+    336: }
+    337: float4x4 mtxFromCols(float4 _0, float4 _1, float4 _2, float4 _3)
+    338: {
+    339: return transpose(float4x4(_0, _1, _2, _3) );
+    340: }
+    341: float3x3 mtxFromRows(float3 _0, float3 _1, float3 _2)
+    342: {
+    343: return float3x3(_0, _1, _2);
+    344: }
+    345: float3x3 mtxFromCols(float3 _0, float3 _1, float3 _2)
+    346: {
+    347: return transpose(float3x3(_0, _1, _2) );
+    348: }
+    349: uniform float4 u_viewRect;
+    350: uniform float4 u_viewTexel;
+    351: uniform float4x4 u_view;
+    352: uniform float4x4 u_invView;
+    353: uniform float4x4 u_proj;
+    354: uniform float4x4 u_invProj;
+    355: uniform float4x4 u_viewProj;
+    356: uniform float4x4 u_invViewProj;
+    357: uniform float4x4 u_model[32];
+    358: uniform float4x4 u_modelView;
+    359: uniform float4x4 u_modelViewProj;
+    360: uniform float4 u_alphaRef4;
+    361: float4 encodeRE8(float _r)
+    362: {
+    363: float exponent = ceil(log2(_r) );
+    364: return float4(_r / exp2(exponent)
+    365: , 0.0
+    366: , 0.0
+    367: , (exponent + 128.0) / 255.0
+    368: );
+    369: }
+    370: float decodeRE8(float4 _re8)
+    371: {
+    372: float exponent = _re8.w * 255.0 - 128.0;
+    373: return _re8.x * exp2(exponent);
+    374: }
+    375: float4 encodeRGBE8(float3 _rgb)
+    376: {
+    377: float4 rgbe8;
+    378: float maxComponent = max(max(_rgb.x, _rgb.y), _rgb.z);
+    379: float exponent = ceil(log2(maxComponent) );
+    380: rgbe8.xyz = _rgb / exp2(exponent);
+    381: rgbe8.w = (exponent + 128.0) / 255.0;
+    382: return rgbe8;
+    383: }
+    384: float3 decodeRGBE8(float4 _rgbe8)
+    385: {
+    386: float exponent = _rgbe8.w * 255.0 - 128.0;
+    387: float3 rgb = _rgbe8.xyz * exp2(exponent);
+    388: return rgb;
+    389: }
+    390: float3 encodeNormalUint(float3 _normal)
+    391: {
+    392: return _normal * 0.5 + 0.5;
+    393: }
+    394: float3 decodeNormalUint(float3 _encodedNormal)
+    395: {
+    396: return _encodedNormal * 2.0 - 1.0;
+    397: }
+    398: float2 encodeNormalSphereMap(float3 _normal)
+    399: {
+    400: return normalize(_normal.xy) * sqrt(_normal.z * 0.5 + 0.5);
+    401: }
+    402: float3 decodeNormalSphereMap(float2 _encodedNormal)
+    403: {
+    404: float zz = dot(_encodedNormal, _encodedNormal) * 2.0 - 1.0;
+    405: return float3(normalize(_encodedNormal.xy) * sqrt(1.0 - zz*zz), zz);
+    406: }
+    407: float2 octahedronWrap(float2 _val)
+    408: {
+    409: return (1.0 - abs(_val.yx) )
+    410: * mix(vec2_splat(-1.0), vec2_splat(1.0), float2(greaterThanEqual(_val.xy, vec2_splat(0.0) ) ) );
+    411: }
+    412: float2 encodeNormalOctahedron(float3 _normal)
+    413: {
+    414: _normal /= abs(_normal.x) + abs(_normal.y) + abs(_normal.z);
+    415: _normal.xy = _normal.z >= 0.0 ? _normal.xy : octahedronWrap(_normal.xy);
+    416: _normal.xy = _normal.xy * 0.5 + 0.5;
+    417: return _normal.xy;
+    418: }
+    419: float3 decodeNormalOctahedron(float2 _encodedNormal)
+    420: {
+    421: _encodedNormal = _encodedNormal * 2.0 - 1.0;
+    422: float3 normal;
+    423: normal.z = 1.0 - abs(_encodedNormal.x) - abs(_encodedNormal.y);
+    424: normal.xy = normal.z >= 0.0 ? _encodedNormal.xy : octahedronWrap(_encodedNormal.xy);
+    425: return normalize(normal);
+    426: }
+    427: float3 convertRGB2XYZ(float3 _rgb)
+    428: {
+    429: float3 xyz;
+    430: xyz.x = dot(float3(0.4124564, 0.3575761, 0.1804375), _rgb);
+    431: xyz.y = dot(float3(0.2126729, 0.7151522, 0.0721750), _rgb);
+    432: xyz.z = dot(float3(0.0193339, 0.1191920, 0.9503041), _rgb);
+    433: return xyz;
+    434: }
+    435: float3 convertXYZ2RGB(float3 _xyz)
+    436: {
+    437: float3 rgb;
+    438: rgb.x = dot(float3( 3.2404542, -1.5371385, -0.4985314), _xyz);
+    439: rgb.y = dot(float3(-0.9692660, 1.8760108, 0.0415560), _xyz);
+    440: rgb.z = dot(float3( 0.0556434, -0.2040259, 1.0572252), _xyz);
+    441: return rgb;
+    442: }
+    443: float3 convertXYZ2Yxy(float3 _xyz)
+    444: {
+    445: float inv = 1.0/dot(_xyz, float3(1.0, 1.0, 1.0) );
+    446: return float3(_xyz.y, _xyz.x*inv, _xyz.y*inv);
+    447: }
+    448: float3 convertYxy2XYZ(float3 _Yxy)
+    449: {
+    450: float3 xyz;
+    451: xyz.x = _Yxy.x*_Yxy.y/_Yxy.z;
+    452: xyz.y = _Yxy.x;
+    453: xyz.z = _Yxy.x*(1.0 - _Yxy.y - _Yxy.z)/_Yxy.z;
+    454: return xyz;
+    455: }
+    456: float3 convertRGB2Yxy(float3 _rgb)
+    457: {
+    458: return convertXYZ2Yxy(convertRGB2XYZ(_rgb) );
+    459: }
+    460: float3 convertYxy2RGB(float3 _Yxy)
+    461: {
+    462: return convertXYZ2RGB(convertYxy2XYZ(_Yxy) );
+    463: }
+    464: float3 convertRGB2Yuv(float3 _rgb)
+    465: {
+    466: float3 yuv;
+    467: yuv.x = dot(_rgb, float3(0.299, 0.587, 0.114) );
+    468: yuv.y = (_rgb.x - yuv.x)*0.713 + 0.5;
+    469: yuv.z = (_rgb.z - yuv.x)*0.564 + 0.5;
+    470: return yuv;
+    471: }
+    472: float3 convertYuv2RGB(float3 _yuv)
+    473: {
+    474: float3 rgb;
+    475: rgb.x = _yuv.x + 1.403*(_yuv.y-0.5);
+    476: rgb.y = _yuv.x - 0.344*(_yuv.y-0.5) - 0.714*(_yuv.z-0.5);
+    477: rgb.z = _yuv.x + 1.773*(_yuv.z-0.5);
+    478: return rgb;
+    479: }
+    480: float3 convertRGB2YIQ(float3 _rgb)
+    481: {
+    482: float3 yiq;
+    483: yiq.x = dot(float3(0.299, 0.587, 0.114 ), _rgb);
+    484: yiq.y = dot(float3(0.595716, -0.274453, -0.321263), _rgb);
+    485: yiq.z = dot(float3(0.211456, -0.522591, 0.311135), _rgb);
+    486: return yiq;
+    487: }
+    488: float3 convertYIQ2RGB(float3 _yiq)
+    489: {
+    490: float3 rgb;
+    491: rgb.x = dot(float3(1.0, 0.9563, 0.6210), _yiq);
+    492: rgb.y = dot(float3(1.0, -0.2721, -0.6474), _yiq);
+    493: rgb.z = dot(float3(1.0, -1.1070, 1.7046), _yiq);
+    494: return rgb;
+    495: }
+    496: float3 toLinear(float3 _rgb)
+    497: {
+    498: return pow(abs(_rgb), vec3_splat(2.2) );
+    499: }
+    500: float4 toLinear(float4 _rgba)
+    501: {
+    502: return float4(toLinear(_rgba.xyz), _rgba.w);
+    503: }
+    504: float3 toLinearAccurate(float3 _rgb)
+    505: {
+    506: float3 lo = _rgb / 12.92;
+    507: float3 hi = pow( (_rgb + 0.055) / 1.055, vec3_splat(2.4) );
+    508: float3 rgb = mix(hi, lo, float3(lessThanEqual(_rgb, vec3_splat(0.04045) ) ) );
+    509: return rgb;
+    510: }
+    511: float4 toLinearAccurate(float4 _rgba)
+    512: {
+    513: return float4(toLinearAccurate(_rgba.xyz), _rgba.w);
+    514: }
+    515: float toGamma(float _r)
+    516: {
+    517: return pow(abs(_r), 1.0/2.2);
+    518: }
+    519: float3 toGamma(float3 _rgb)
+    520: {
+    521: return pow(abs(_rgb), vec3_splat(1.0/2.2) );
+    522: }
+    523: float4 toGamma(float4 _rgba)
+    524: {
+    525: return float4(toGamma(_rgba.xyz), _rgba.w);
+    526: }
+    527: float3 toGammaAccurate(float3 _rgb)
+    528: {
+    529: float3 lo = _rgb * 12.92;
+    530: float3 hi = pow(abs(_rgb), vec3_splat(1.0/2.4) ) * 1.055 - 0.055;
+    531: float3 rgb = mix(hi, lo, float3(lessThanEqual(_rgb, vec3_splat(0.0031308) ) ) );
+    532: return rgb;
+    533: }
+    534: float4 toGammaAccurate(float4 _rgba)
+    535: {
+    536: return float4(toGammaAccurate(_rgba.xyz), _rgba.w);
+    537: }
+    538: float3 toReinhard(float3 _rgb)
+    539: {
+    540: return toGamma(_rgb/(_rgb+vec3_splat(1.0) ) );
+    541: }
+    542: float4 toReinhard(float4 _rgba)
+    543: {
+    544: return float4(toReinhard(_rgba.xyz), _rgba.w);
+    545: }
+    546: float3 toFilmic(float3 _rgb)
+    547: {
+    548: _rgb = max(vec3_splat(0.0), _rgb - 0.004);
+    549: _rgb = (_rgb*(6.2*_rgb + 0.5) ) / (_rgb*(6.2*_rgb + 1.7) + 0.06);
+    550: return _rgb;
+    551: }
+    552: float4 toFilmic(float4 _rgba)
+    553: {
+    554: return float4(toFilmic(_rgba.xyz), _rgba.w);
+    555: }
+    556: float3 toAcesFilmic(float3 _rgb)
+    557: {
+    558: float aa = 2.51f;
+    559: float bb = 0.03f;
+    560: float cc = 2.43f;
+    561: float dd = 0.59f;
+    562: float ee = 0.14f;
+    563: return saturate( (_rgb*(aa*_rgb + bb) )/(_rgb*(cc*_rgb + dd) + ee) );
+    564: }
+    565: float4 toAcesFilmic(float4 _rgba)
+    566: {
+    567: return float4(toAcesFilmic(_rgba.xyz), _rgba.w);
+    568: }
+    569: float3 luma(float3 _rgb)
+    570: {
+    571: float yy = dot(float3(0.2126729, 0.7151522, 0.0721750), _rgb);
+    572: return vec3_splat(yy);
+    573: }
+    574: float4 luma(float4 _rgba)
+    575: {
+    576: return float4(luma(_rgba.xyz), _rgba.w);
+    577: }
+    578: float3 conSatBri(float3 _rgb, float3 _csb)
+    579: {
+    580: float3 rgb = _rgb * _csb.z;
+    581: rgb = mix(luma(rgb), rgb, _csb.y);
+    582: rgb = mix(vec3_splat(0.5), rgb, _csb.x);
+    583: return rgb;
+    584: }
+    585: float4 conSatBri(float4 _rgba, float3 _csb)
+    586: {
+    587: return float4(conSatBri(_rgba.xyz, _csb), _rgba.w);
+    588: }
+    589: float3 posterize(float3 _rgb, float _numColors)
+    590: {
+    591: return floor(_rgb*_numColors) / _numColors;
+    592: }
+    593: float4 posterize(float4 _rgba, float _numColors)
+    594: {
+    595: return float4(posterize(_rgba.xyz, _numColors), _rgba.w);
+    596: }
+    597: float3 sepia(float3 _rgb)
+    598: {
+    599: float3 color;
+    600: color.x = dot(_rgb, float3(0.393, 0.769, 0.189) );
+    601: color.y = dot(_rgb, float3(0.349, 0.686, 0.168) );
+    602: color.z = dot(_rgb, float3(0.272, 0.534, 0.131) );
+    603: return color;
+    604: }
+    605: float4 sepia(float4 _rgba)
+    606: {
+    607: return float4(sepia(_rgba.xyz), _rgba.w);
+    608: }
+    609: float3 blendOverlay(float3 _base, float3 _blend)
+    610: {
+    611: float3 lt = 2.0 * _base * _blend;
+    612: float3 gte = 1.0 - 2.0 * (1.0 - _base) * (1.0 - _blend);
+    613: return mix(lt, gte, step(vec3_splat(0.5), _base) );
+    614: }
+    615: float4 blendOverlay(float4 _base, float4 _blend)
+    616: {
+    617: return float4(blendOverlay(_base.xyz, _blend.xyz), _base.w);
+    618: }
+    619: float3 adjustHue(float3 _rgb, float _hue)
+    620: {
+    621: float3 yiq = convertRGB2YIQ(_rgb);
+    622: float angle = _hue + atan2(yiq.z, yiq.y);
+    623: float len = length(yiq.yz);
+    624: return convertYIQ2RGB(float3(yiq.x, len*cos(angle), len*sin(angle) ) );
+    625: }
+    626: float4 packFloatToRgba(float _value)
+    627: {
+    628: const float4 shift = float4(256 * 256 * 256, 256 * 256, 256, 1.0);
+    629: const float4 mask = float4(0, 1.0 / 256.0, 1.0 / 256.0, 1.0 / 256.0);
+    630: float4 comp = frac(_value * shift);
+    631: comp -= comp.xxyz * mask;
+    632: return comp;
+    633: }
+    634: float unpackRgbaToFloat(float4 _rgba)
+    635: {
+    636: const float4 shift = float4(1.0 / (256.0 * 256.0 * 256.0), 1.0 / (256.0 * 256.0), 1.0 / 256.0, 1.0);
+    637: return dot(_rgba, shift);
+    638: }
+    639: float2 packHalfFloat(float _value)
+    640: {
+    641: const float2 shift = float2(256, 1.0);
+    642: const float2 mask = float2(0, 1.0 / 256.0);
+    643: float2 comp = frac(_value * shift);
+    644: comp -= comp.xx * mask;
+    645: return comp;
+    646: }
+    647: float unpackHalfFloat(float2 _rg)
+    648: {
+    649: const float2 shift = float2(1.0 / 256.0, 1.0);
+    650: return dot(_rg, shift);
+    651: }
+    652: float random(float2 _uv)
+    653: {
+    654: return frac(sin(dot(_uv.xy, float2(12.9898, 78.233) ) ) * 43758.5453);
+    655: }
+    656: float3 fixCubeLookup(float3 _v, float _lod, float _topLevelCubeSize)
+    657: {
+    658: float ax = abs(_v.x);
+    659: float ay = abs(_v.y);
+    660: float az = abs(_v.z);
+    661: float vmax = max(max(ax, ay), az);
+    662: float scale = 1.0 - exp2(_lod) / _topLevelCubeSize;
+    663: if (ax != vmax) { _v.x *= scale; }
+    664: if (ay != vmax) { _v.y *= scale; }
+    665: if (az != vmax) { _v.z *= scale; }
+    666: return _v;
+    667: }
+    668: float2 texture2DBc5(BgfxSampler2D _sampler, float2 _uv)
+    669: {
+    670: return bgfxTexture2D(_sampler, _uv).xy;
+    671: }
+    672: float3x3 cofactor(float4x4 _m)
+    673: {
+    674: return float3x3(
+    675: _m[1][1]*_m[2][2]-_m[1][2]*_m[2][1],
+    676: _m[1][2]*_m[2][0]-_m[1][0]*_m[2][2],
+    677: _m[1][0]*_m[2][1]-_m[1][1]*_m[2][0],
+    678: _m[0][2]*_m[2][1]-_m[0][1]*_m[2][2],
+    679: _m[0][0]*_m[2][2]-_m[0][2]*_m[2][0],
+    680: _m[0][1]*_m[2][0]-_m[0][0]*_m[2][1],
+    681: _m[0][1]*_m[1][2]-_m[0][2]*_m[1][1],
+    682: _m[0][2]*_m[1][0]-_m[0][0]*_m[1][2],
+    683: _m[0][0]*_m[1][1]-_m[0][1]*_m[1][0]
+    684: );
+    685: }
+    686: float toClipSpaceDepth(float _depthTextureZ)
+    687: {
+    688: return _depthTextureZ;
+    689: }
+    690: float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
+    691: {
+    692: float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
+    693: return wpos.xyz / wpos.w;
+    694: }
+    695: uniform SamplerState baseSamplerSampler : register( s[0] ); uniform Texture2D baseSamplerTexture : register( t[0] ); static BgfxSampler2D baseSampler = { baseSamplerSampler, baseSamplerTexture };
+    696: uniform SamplerState naniteSamplerSampler : register( s[1] ); uniform Texture2D naniteSamplerTexture : register( t[1] ); static BgfxSampler2D naniteSampler = { naniteSamplerSampler, naniteSamplerTexture };
+    697: uniform SamplerState referenceSamplerSampler : register( s[2] ); uniform Texture2D referenceSamplerTexture : register( t[2] ); static BgfxSampler2D referenceSampler = { referenceSamplerSampler, referenceSamplerTexture };
+    698: void main( float4 gl_FragCoord : SV_POSITION , float2 v_texcoord0 : TEXCOORD0 , out float4 bgfx_FragData0 : SV_TARGET0 )
+    699: {
+    700: float4 bgfx_VoidFrag = vec4_splat(0.0);
+    701: float3 luminance = float3(.3, .59, .11);
+    702: float4 base = bgfxTexture2D(baseSampler, v_texcoord0);
+    703: float4 nanite = bgfxTexture2D(naniteSampler, v_texcoord0);
+    704: float4 reference = bgfxTexture2D(referenceSampler, v_texcoord0)
+    705: float4 color = 0;
+    706: color.r = dot(luminance, base.rgb);
+    707: color.g = dot(luminance, nanite.rgb);
+    708: color.b = dot(luminance, nanite.rgb);
+    709: color.a = 1.0;
+    710: bgfx_FragData0 = color;
+    711: }
+---
+Error: D3DCompile failed 0x80004005 Z:\bgfx\examples\runtime\shaders\dx11\fs_50_compost.bin.hlsl(705,1-6): error X3000: syntax error: unexpected token 'float4'
+Z:\bgfx\examples\runtime\shaders\dx11\fs_50_compost.bin.hlsl(706,1-5): error X3004: undeclared identifier 'color'
+
+Failed to build shader.
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_splat.sc -o ..\runtime\shaders\dx11\vs_50_splat.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src 
+Code:
+---
+      1: // shaderc command line:
+      2: // .\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f vs_50_splat.sc -o ..\runtime\shaders\dx11\vs_50_splat.bin --type f --platform windows --debug --profile s_5_0 -i .\..\..\src
+      3: 
+      4: float intBitsToFloat(int _x) { return asfloat(_x); }
+      5: float2 intBitsToFloat(uint2 _x) { return asfloat(_x); }
+      6: float3 intBitsToFloat(uint3 _x) { return asfloat(_x); }
+      7: float4 intBitsToFloat(uint4 _x) { return asfloat(_x); }
+      8: float uintBitsToFloat(uint _x) { return asfloat(_x); }
+      9: float2 uintBitsToFloat(uint2 _x) { return asfloat(_x); }
+     10: float3 uintBitsToFloat(uint3 _x) { return asfloat(_x); }
+     11: float4 uintBitsToFloat(uint4 _x) { return asfloat(_x); }
+     12: uint floatBitsToUint(float _x) { return asuint(_x); }
+     13: uint2 floatBitsToUint(float2 _x) { return asuint(_x); }
+     14: uint3 floatBitsToUint(float3 _x) { return asuint(_x); }
+     15: uint4 floatBitsToUint(float4 _x) { return asuint(_x); }
+     16: int floatBitsToInt(float _x) { return asint(_x); }
+     17: int2 floatBitsToInt(float2 _x) { return asint(_x); }
+     18: int3 floatBitsToInt(float3 _x) { return asint(_x); }
+     19: int4 floatBitsToInt(float4 _x) { return asint(_x); }
+     20: uint bitfieldReverse(uint _x) { return reversebits(_x); }
+     21: uint2 bitfieldReverse(uint2 _x) { return reversebits(_x); }
+     22: uint3 bitfieldReverse(uint3 _x) { return reversebits(_x); }
+     23: uint4 bitfieldReverse(uint4 _x) { return reversebits(_x); }
+     24: uint packHalf2x16(float2 _x)
+     25: {
+     26: return (f32tof16(_x.y)<<16) | f32tof16(_x.x);
+     27: }
+     28: float2 unpackHalf2x16(uint _x)
+     29: {
+     30: return float2(f16tof32(_x & 0xffff), f16tof32(_x >> 16) );
+     31: }
+     32: struct BgfxSampler2D
+     33: {
+     34: SamplerState m_sampler;
+     35: Texture2D m_texture;
+     36: };
+     37: struct BgfxISampler2D
+     38: {
+     39: Texture2D<int4> m_texture;
+     40: };
+     41: struct BgfxUSampler2D
+     42: {
+     43: Texture2D<uint4> m_texture;
+     44: };
+     45: struct BgfxSampler2DArray
+     46: {
+     47: SamplerState m_sampler;
+     48: Texture2DArray m_texture;
+     49: };
+     50: struct BgfxSampler2DShadow
+     51: {
+     52: SamplerComparisonState m_sampler;
+     53: Texture2D m_texture;
+     54: };
+     55: struct BgfxSampler2DArrayShadow
+     56: {
+     57: SamplerComparisonState m_sampler;
+     58: Texture2DArray m_texture;
+     59: };
+     60: struct BgfxSampler3D
+     61: {
+     62: SamplerState m_sampler;
+     63: Texture3D m_texture;
+     64: };
+     65: struct BgfxISampler3D
+     66: {
+     67: Texture3D<int4> m_texture;
+     68: };
+     69: struct BgfxUSampler3D
+     70: {
+     71: Texture3D<uint4> m_texture;
+     72: };
+     73: struct BgfxSamplerCube
+     74: {
+     75: SamplerState m_sampler;
+     76: TextureCube m_texture;
+     77: };
+     78: struct BgfxSamplerCubeShadow
+     79: {
+     80: SamplerComparisonState m_sampler;
+     81: TextureCube m_texture;
+     82: };
+     83: struct BgfxSampler2DMS
+     84: {
+     85: Texture2DMS<float4> m_texture;
+     86: };
+     87: float4 bgfxTexture2D(BgfxSampler2D _sampler, float2 _coord)
+     88: {
+     89: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+     90: }
+     91: float4 bgfxTexture2DBias(BgfxSampler2D _sampler, float2 _coord, float _bias)
+     92: {
+     93: return _sampler.m_texture.SampleBias(_sampler.m_sampler, _coord, _bias);
+     94: }
+     95: float4 bgfxTexture2DLod(BgfxSampler2D _sampler, float2 _coord, float _level)
+     96: {
+     97: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+     98: }
+     99: float4 bgfxTexture2DLodOffset(BgfxSampler2D _sampler, float2 _coord, float _level, int2 _offset)
+    100: {
+    101: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
+    102: }
+    103: float4 bgfxTexture2DProj(BgfxSampler2D _sampler, float3 _coord)
+    104: {
+    105: float2 coord = _coord.xy * rcp(_coord.z);
+    106: return _sampler.m_texture.Sample(_sampler.m_sampler, coord);
+    107: }
+    108: float4 bgfxTexture2DProj(BgfxSampler2D _sampler, float4 _coord)
+    109: {
+    110: float2 coord = _coord.xy * rcp(_coord.w);
+    111: return _sampler.m_texture.Sample(_sampler.m_sampler, coord);
+    112: }
+    113: float4 bgfxTexture2DGrad(BgfxSampler2D _sampler, float2 _coord, float2 _dPdx, float2 _dPdy)
+    114: {
+    115: return _sampler.m_texture.SampleGrad(_sampler.m_sampler, _coord, _dPdx, _dPdy);
+    116: }
+    117: float4 bgfxTexture2DArray(BgfxSampler2DArray _sampler, float3 _coord)
+    118: {
+    119: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    120: }
+    121: float4 bgfxTexture2DArrayLod(BgfxSampler2DArray _sampler, float3 _coord, float _lod)
+    122: {
+    123: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _lod);
+    124: }
+    125: float4 bgfxTexture2DArrayLodOffset(BgfxSampler2DArray _sampler, float3 _coord, float _level, int2 _offset)
+    126: {
+    127: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
+    128: }
+    129: float bgfxShadow2D(BgfxSampler2DShadow _sampler, float3 _coord)
+    130: {
+    131: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xy, _coord.z);
+    132: }
+    133: float bgfxShadow2DProj(BgfxSampler2DShadow _sampler, float4 _coord)
+    134: {
+    135: float3 coord = _coord.xyz * rcp(_coord.w);
+    136: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, coord.xy, coord.z);
+    137: }
+    138: float2 bgfxTextureSize(BgfxSampler2DShadow _sampler, int _lod)
+    139: {
+    140: float2 result;
+    141: float numberOfMipMapLevels;
+    142: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    143: return result;
+    144: }
+    145: float4 bgfxShadow2DArray(BgfxSampler2DArrayShadow _sampler, float4 _coord)
+    146: {
+    147: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xyz, _coord.w);
+    148: }
+    149: float2 bgfxTextureSize(BgfxSampler2DArrayShadow _sampler, int _lod)
+    150: {
+    151: float2 result;
+    152: float numberOfMipMapLevels;
+    153: float numberOfElements;
+    154: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfElements, numberOfMipMapLevels);
+    155: return result;
+    156: }
+    157: float4 bgfxTexture3D(BgfxSampler3D _sampler, float3 _coord)
+    158: {
+    159: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    160: }
+    161: float4 bgfxTexture3DLod(BgfxSampler3D _sampler, float3 _coord, float _level)
+    162: {
+    163: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+    164: }
+    165: int4 bgfxTexture3D(BgfxISampler3D _sampler, float3 _coord)
+    166: {
+    167: uint3 size;
+    168: _sampler.m_texture.GetDimensions(size.x, size.y, size.z);
+    169: return _sampler.m_texture.Load(int4(_coord * size, 0) );
+    170: }
+    171: uint4 bgfxTexture3D(BgfxUSampler3D _sampler, float3 _coord)
+    172: {
+    173: uint3 size;
+    174: _sampler.m_texture.GetDimensions(size.x, size.y, size.z);
+    175: return _sampler.m_texture.Load(int4(_coord * size, 0) );
+    176: }
+    177: float4 bgfxTextureCube(BgfxSamplerCube _sampler, float3 _coord)
+    178: {
+    179: return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+    180: }
+    181: float4 bgfxTextureCubeBias(BgfxSamplerCube _sampler, float3 _coord, float _bias)
+    182: {
+    183: return _sampler.m_texture.SampleBias(_sampler.m_sampler, _coord, _bias);
+    184: }
+    185: float4 bgfxTextureCubeLod(BgfxSamplerCube _sampler, float3 _coord, float _level)
+    186: {
+    187: return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+    188: }
+    189: float bgfxShadowCube(BgfxSamplerCubeShadow _sampler, float4 _coord)
+    190: {
+    191: return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xyz, _coord.w);
+    192: }
+    193: float4 bgfxTexelFetch(BgfxSampler2D _sampler, int2 _coord, int _lod)
+    194: {
+    195: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    196: }
+    197: float4 bgfxTexelFetchOffset(BgfxSampler2D _sampler, int2 _coord, int _lod, int2 _offset)
+    198: {
+    199: return _sampler.m_texture.Load(int3(_coord, _lod), _offset );
+    200: }
+    201: float2 bgfxTextureSize(BgfxSampler2D _sampler, int _lod)
+    202: {
+    203: float2 result;
+    204: float numberOfMipMapLevels;
+    205: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    206: return result;
+    207: }
+    208: float2 bgfxTextureSize(BgfxISampler2D _sampler, int _lod)
+    209: {
+    210: float2 result;
+    211: float numberOfMipMapLevels;
+    212: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    213: return result;
+    214: }
+    215: float2 bgfxTextureSize(BgfxUSampler2D _sampler, int _lod)
+    216: {
+    217: float2 result;
+    218: float numberOfMipMapLevels;
+    219: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+    220: return result;
+    221: }
+    222: float4 bgfxTextureGather0(BgfxSampler2D _sampler, float2 _coord)
+    223: {
+    224: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+    225: }
+    226: float4 bgfxTextureGather1(BgfxSampler2D _sampler, float2 _coord)
+    227: {
+    228: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+    229: }
+    230: float4 bgfxTextureGather2(BgfxSampler2D _sampler, float2 _coord)
+    231: {
+    232: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+    233: }
+    234: float4 bgfxTextureGather3(BgfxSampler2D _sampler, float2 _coord)
+    235: {
+    236: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
+    237: }
+    238: float4 bgfxTextureGatherOffset0(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    239: {
+    240: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord, _offset);
+    241: }
+    242: float4 bgfxTextureGatherOffset1(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    243: {
+    244: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord, _offset);
+    245: }
+    246: float4 bgfxTextureGatherOffset2(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    247: {
+    248: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord, _offset);
+    249: }
+    250: float4 bgfxTextureGatherOffset3(BgfxSampler2D _sampler, float2 _coord, int2 _offset)
+    251: {
+    252: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord, _offset);
+    253: }
+    254: float4 bgfxTextureGather0(BgfxSampler2DArray _sampler, float3 _coord)
+    255: {
+    256: return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+    257: }
+    258: float4 bgfxTextureGather1(BgfxSampler2DArray _sampler, float3 _coord)
+    259: {
+    260: return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+    261: }
+    262: float4 bgfxTextureGather2(BgfxSampler2DArray _sampler, float3 _coord)
+    263: {
+    264: return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+    265: }
+    266: float4 bgfxTextureGather3(BgfxSampler2DArray _sampler, float3 _coord)
+    267: {
+    268: return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
+    269: }
+    270: int4 bgfxTexelFetch(BgfxISampler2D _sampler, int2 _coord, int _lod)
+    271: {
+    272: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    273: }
+    274: uint4 bgfxTexelFetch(BgfxUSampler2D _sampler, int2 _coord, int _lod)
+    275: {
+    276: return _sampler.m_texture.Load(int3(_coord, _lod) );
+    277: }
+    278: float4 bgfxTexelFetch(BgfxSampler2DMS _sampler, int2 _coord, int _sampleIdx)
+    279: {
+    280: return _sampler.m_texture.Load(_coord, _sampleIdx);
+    281: }
+    282: float4 bgfxTexelFetch(BgfxSampler2DArray _sampler, int3 _coord, int _lod)
+    283: {
+    284: return _sampler.m_texture.Load(int4(_coord, _lod) );
+    285: }
+    286: float4 bgfxTexelFetch(BgfxSampler3D _sampler, int3 _coord, int _lod)
+    287: {
+    288: return _sampler.m_texture.Load(int4(_coord, _lod) );
+    289: }
+    290: float3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
+    291: {
+    292: float3 result;
+    293: float numberOfMipMapLevels;
+    294: _sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+    295: return result;
+    296: }
+    297: float3 instMul(float3 _vec, float3x3 _mtx) { return mul(_mtx, _vec); }
+    298: float3 instMul(float3x3 _mtx, float3 _vec) { return mul(_vec, _mtx); }
+    299: float4 instMul(float4 _vec, float4x4 _mtx) { return mul(_mtx, _vec); }
+    300: float4 instMul(float4x4 _mtx, float4 _vec) { return mul(_vec, _mtx); }
+    301: bool2 lessThan(float2 _a, float2 _b) { return _a < _b; }
+    302: bool3 lessThan(float3 _a, float3 _b) { return _a < _b; }
+    303: bool4 lessThan(float4 _a, float4 _b) { return _a < _b; }
+    304: bool2 lessThanEqual(float2 _a, float2 _b) { return _a <= _b; }
+    305: bool3 lessThanEqual(float3 _a, float3 _b) { return _a <= _b; }
+    306: bool4 lessThanEqual(float4 _a, float4 _b) { return _a <= _b; }
+    307: bool2 greaterThan(float2 _a, float2 _b) { return _a > _b; }
+    308: bool3 greaterThan(float3 _a, float3 _b) { return _a > _b; }
+    309: bool4 greaterThan(float4 _a, float4 _b) { return _a > _b; }
+    310: bool2 greaterThanEqual(float2 _a, float2 _b) { return _a >= _b; }
+    311: bool3 greaterThanEqual(float3 _a, float3 _b) { return _a >= _b; }
+    312: bool4 greaterThanEqual(float4 _a, float4 _b) { return _a >= _b; }
+    313: bool2 notEqual(float2 _a, float2 _b) { return _a != _b; }
+    314: bool3 notEqual(float3 _a, float3 _b) { return _a != _b; }
+    315: bool4 notEqual(float4 _a, float4 _b) { return _a != _b; }
+    316: bool2 equal(float2 _a, float2 _b) { return _a == _b; }
+    317: bool3 equal(float3 _a, float3 _b) { return _a == _b; }
+    318: bool4 equal(float4 _a, float4 _b) { return _a == _b; }
+    319: float mix(float _a, float _b, float _t) { return lerp(_a, _b, _t); }
+    320: float2 mix(float2 _a, float2 _b, float2 _t) { return lerp(_a, _b, _t); }
+    321: float3 mix(float3 _a, float3 _b, float3 _t) { return lerp(_a, _b, _t); }
+    322: float4 mix(float4 _a, float4 _b, float4 _t) { return lerp(_a, _b, _t); }
+    323: float mod(float _a, float _b) { return _a - _b * floor(_a / _b); }
+    324: float2 mod(float2 _a, float2 _b) { return _a - _b * floor(_a / _b); }
+    325: float3 mod(float3 _a, float3 _b) { return _a - _b * floor(_a / _b); }
+    326: float4 mod(float4 _a, float4 _b) { return _a - _b * floor(_a / _b); }
+    327: float2 vec2_splat(float _x) { return float2(_x, _x); }
+    328: float3 vec3_splat(float _x) { return float3(_x, _x, _x); }
+    329: float4 vec4_splat(float _x) { return float4(_x, _x, _x, _x); }
+    330: uint2 uvec2_splat(uint _x) { return uint2(_x, _x); }
+    331: uint3 uvec3_splat(uint _x) { return uint3(_x, _x, _x); }
+    332: uint4 uvec4_splat(uint _x) { return uint4(_x, _x, _x, _x); }
+    333: float4x4 mtxFromRows(float4 _0, float4 _1, float4 _2, float4 _3)
+    334: {
+    335: return float4x4(_0, _1, _2, _3);
+    336: }
+    337: float4x4 mtxFromCols(float4 _0, float4 _1, float4 _2, float4 _3)
+    338: {
+    339: return transpose(float4x4(_0, _1, _2, _3) );
+    340: }
+    341: float3x3 mtxFromRows(float3 _0, float3 _1, float3 _2)
+    342: {
+    343: return float3x3(_0, _1, _2);
+    344: }
+    345: float3x3 mtxFromCols(float3 _0, float3 _1, float3 _2)
+    346: {
+    347: return transpose(float3x3(_0, _1, _2) );
+    348: }
+    349: uniform float4 u_viewRect;
+    350: uniform float4 u_viewTexel;
+    351: uniform float4x4 u_view;
+    352: uniform float4x4 u_invView;
+    353: uniform float4x4 u_proj;
+    354: uniform float4x4 u_invProj;
+    355: uniform float4x4 u_viewProj;
+    356: uniform float4x4 u_invViewProj;
+    357: uniform float4x4 u_model[32];
+    358: uniform float4x4 u_modelView;
+    359: uniform float4x4 u_modelViewProj;
+    360: uniform float4 u_alphaRef4;
+    361: float4 encodeRE8(float _r)
+    362: {
+    363: float exponent = ceil(log2(_r) );
+    364: return float4(_r / exp2(exponent)
+    365: , 0.0
+    366: , 0.0
+    367: , (exponent + 128.0) / 255.0
+    368: );
+    369: }
+    370: float decodeRE8(float4 _re8)
+    371: {
+    372: float exponent = _re8.w * 255.0 - 128.0;
+    373: return _re8.x * exp2(exponent);
+    374: }
+    375: float4 encodeRGBE8(float3 _rgb)
+    376: {
+    377: float4 rgbe8;
+    378: float maxComponent = max(max(_rgb.x, _rgb.y), _rgb.z);
+    379: float exponent = ceil(log2(maxComponent) );
+    380: rgbe8.xyz = _rgb / exp2(exponent);
+    381: rgbe8.w = (exponent + 128.0) / 255.0;
+    382: return rgbe8;
+    383: }
+    384: float3 decodeRGBE8(float4 _rgbe8)
+    385: {
+    386: float exponent = _rgbe8.w * 255.0 - 128.0;
+    387: float3 rgb = _rgbe8.xyz * exp2(exponent);
+    388: return rgb;
+    389: }
+    390: float3 encodeNormalUint(float3 _normal)
+    391: {
+    392: return _normal * 0.5 + 0.5;
+    393: }
+    394: float3 decodeNormalUint(float3 _encodedNormal)
+    395: {
+    396: return _encodedNormal * 2.0 - 1.0;
+    397: }
+    398: float2 encodeNormalSphereMap(float3 _normal)
+    399: {
+    400: return normalize(_normal.xy) * sqrt(_normal.z * 0.5 + 0.5);
+    401: }
+    402: float3 decodeNormalSphereMap(float2 _encodedNormal)
+    403: {
+    404: float zz = dot(_encodedNormal, _encodedNormal) * 2.0 - 1.0;
+    405: return float3(normalize(_encodedNormal.xy) * sqrt(1.0 - zz*zz), zz);
+    406: }
+    407: float2 octahedronWrap(float2 _val)
+    408: {
+    409: return (1.0 - abs(_val.yx) )
+    410: * mix(vec2_splat(-1.0), vec2_splat(1.0), float2(greaterThanEqual(_val.xy, vec2_splat(0.0) ) ) );
+    411: }
+    412: float2 encodeNormalOctahedron(float3 _normal)
+    413: {
+    414: _normal /= abs(_normal.x) + abs(_normal.y) + abs(_normal.z);
+    415: _normal.xy = _normal.z >= 0.0 ? _normal.xy : octahedronWrap(_normal.xy);
+    416: _normal.xy = _normal.xy * 0.5 + 0.5;
+    417: return _normal.xy;
+    418: }
+    419: float3 decodeNormalOctahedron(float2 _encodedNormal)
+    420: {
+    421: _encodedNormal = _encodedNormal * 2.0 - 1.0;
+    422: float3 normal;
+    423: normal.z = 1.0 - abs(_encodedNormal.x) - abs(_encodedNormal.y);
+    424: normal.xy = normal.z >= 0.0 ? _encodedNormal.xy : octahedronWrap(_encodedNormal.xy);
+    425: return normalize(normal);
+    426: }
+    427: float3 convertRGB2XYZ(float3 _rgb)
+    428: {
+    429: float3 xyz;
+    430: xyz.x = dot(float3(0.4124564, 0.3575761, 0.1804375), _rgb);
+    431: xyz.y = dot(float3(0.2126729, 0.7151522, 0.0721750), _rgb);
+    432: xyz.z = dot(float3(0.0193339, 0.1191920, 0.9503041), _rgb);
+    433: return xyz;
+    434: }
+    435: float3 convertXYZ2RGB(float3 _xyz)
+    436: {
+    437: float3 rgb;
+    438: rgb.x = dot(float3( 3.2404542, -1.5371385, -0.4985314), _xyz);
+    439: rgb.y = dot(float3(-0.9692660, 1.8760108, 0.0415560), _xyz);
+    440: rgb.z = dot(float3( 0.0556434, -0.2040259, 1.0572252), _xyz);
+    441: return rgb;
+    442: }
+    443: float3 convertXYZ2Yxy(float3 _xyz)
+    444: {
+    445: float inv = 1.0/dot(_xyz, float3(1.0, 1.0, 1.0) );
+    446: return float3(_xyz.y, _xyz.x*inv, _xyz.y*inv);
+    447: }
+    448: float3 convertYxy2XYZ(float3 _Yxy)
+    449: {
+    450: float3 xyz;
+    451: xyz.x = _Yxy.x*_Yxy.y/_Yxy.z;
+    452: xyz.y = _Yxy.x;
+    453: xyz.z = _Yxy.x*(1.0 - _Yxy.y - _Yxy.z)/_Yxy.z;
+    454: return xyz;
+    455: }
+    456: float3 convertRGB2Yxy(float3 _rgb)
+    457: {
+    458: return convertXYZ2Yxy(convertRGB2XYZ(_rgb) );
+    459: }
+    460: float3 convertYxy2RGB(float3 _Yxy)
+    461: {
+    462: return convertXYZ2RGB(convertYxy2XYZ(_Yxy) );
+    463: }
+    464: float3 convertRGB2Yuv(float3 _rgb)
+    465: {
+    466: float3 yuv;
+    467: yuv.x = dot(_rgb, float3(0.299, 0.587, 0.114) );
+    468: yuv.y = (_rgb.x - yuv.x)*0.713 + 0.5;
+    469: yuv.z = (_rgb.z - yuv.x)*0.564 + 0.5;
+    470: return yuv;
+    471: }
+    472: float3 convertYuv2RGB(float3 _yuv)
+    473: {
+    474: float3 rgb;
+    475: rgb.x = _yuv.x + 1.403*(_yuv.y-0.5);
+    476: rgb.y = _yuv.x - 0.344*(_yuv.y-0.5) - 0.714*(_yuv.z-0.5);
+    477: rgb.z = _yuv.x + 1.773*(_yuv.z-0.5);
+    478: return rgb;
+    479: }
+    480: float3 convertRGB2YIQ(float3 _rgb)
+    481: {
+    482: float3 yiq;
+    483: yiq.x = dot(float3(0.299, 0.587, 0.114 ), _rgb);
+    484: yiq.y = dot(float3(0.595716, -0.274453, -0.321263), _rgb);
+    485: yiq.z = dot(float3(0.211456, -0.522591, 0.311135), _rgb);
+    486: return yiq;
+    487: }
+    488: float3 convertYIQ2RGB(float3 _yiq)
+    489: {
+    490: float3 rgb;
+    491: rgb.x = dot(float3(1.0, 0.9563, 0.6210), _yiq);
+    492: rgb.y = dot(float3(1.0, -0.2721, -0.6474), _yiq);
+    493: rgb.z = dot(float3(1.0, -1.1070, 1.7046), _yiq);
+    494: return rgb;
+    495: }
+    496: float3 toLinear(float3 _rgb)
+    497: {
+    498: return pow(abs(_rgb), vec3_splat(2.2) );
+    499: }
+    500: float4 toLinear(float4 _rgba)
+    501: {
+    502: return float4(toLinear(_rgba.xyz), _rgba.w);
+    503: }
+    504: float3 toLinearAccurate(float3 _rgb)
+    505: {
+    506: float3 lo = _rgb / 12.92;
+    507: float3 hi = pow( (_rgb + 0.055) / 1.055, vec3_splat(2.4) );
+    508: float3 rgb = mix(hi, lo, float3(lessThanEqual(_rgb, vec3_splat(0.04045) ) ) );
+    509: return rgb;
+    510: }
+    511: float4 toLinearAccurate(float4 _rgba)
+    512: {
+    513: return float4(toLinearAccurate(_rgba.xyz), _rgba.w);
+    514: }
+    515: float toGamma(float _r)
+    516: {
+    517: return pow(abs(_r), 1.0/2.2);
+    518: }
+    519: float3 toGamma(float3 _rgb)
+    520: {
+    521: return pow(abs(_rgb), vec3_splat(1.0/2.2) );
+    522: }
+    523: float4 toGamma(float4 _rgba)
+    524: {
+    525: return float4(toGamma(_rgba.xyz), _rgba.w);
+    526: }
+    527: float3 toGammaAccurate(float3 _rgb)
+    528: {
+    529: float3 lo = _rgb * 12.92;
+    530: float3 hi = pow(abs(_rgb), vec3_splat(1.0/2.4) ) * 1.055 - 0.055;
+    531: float3 rgb = mix(hi, lo, float3(lessThanEqual(_rgb, vec3_splat(0.0031308) ) ) );
+    532: return rgb;
+    533: }
+    534: float4 toGammaAccurate(float4 _rgba)
+    535: {
+    536: return float4(toGammaAccurate(_rgba.xyz), _rgba.w);
+    537: }
+    538: float3 toReinhard(float3 _rgb)
+    539: {
+    540: return toGamma(_rgb/(_rgb+vec3_splat(1.0) ) );
+    541: }
+    542: float4 toReinhard(float4 _rgba)
+    543: {
+    544: return float4(toReinhard(_rgba.xyz), _rgba.w);
+    545: }
+    546: float3 toFilmic(float3 _rgb)
+    547: {
+    548: _rgb = max(vec3_splat(0.0), _rgb - 0.004);
+    549: _rgb = (_rgb*(6.2*_rgb + 0.5) ) / (_rgb*(6.2*_rgb + 1.7) + 0.06);
+    550: return _rgb;
+    551: }
+    552: float4 toFilmic(float4 _rgba)
+    553: {
+    554: return float4(toFilmic(_rgba.xyz), _rgba.w);
+    555: }
+    556: float3 toAcesFilmic(float3 _rgb)
+    557: {
+    558: float aa = 2.51f;
+    559: float bb = 0.03f;
+    560: float cc = 2.43f;
+    561: float dd = 0.59f;
+    562: float ee = 0.14f;
+    563: return saturate( (_rgb*(aa*_rgb + bb) )/(_rgb*(cc*_rgb + dd) + ee) );
+    564: }
+    565: float4 toAcesFilmic(float4 _rgba)
+    566: {
+    567: return float4(toAcesFilmic(_rgba.xyz), _rgba.w);
+    568: }
+    569: float3 luma(float3 _rgb)
+    570: {
+    571: float yy = dot(float3(0.2126729, 0.7151522, 0.0721750), _rgb);
+    572: return vec3_splat(yy);
+    573: }
+    574: float4 luma(float4 _rgba)
+    575: {
+    576: return float4(luma(_rgba.xyz), _rgba.w);
+    577: }
+    578: float3 conSatBri(float3 _rgb, float3 _csb)
+    579: {
+    580: float3 rgb = _rgb * _csb.z;
+    581: rgb = mix(luma(rgb), rgb, _csb.y);
+    582: rgb = mix(vec3_splat(0.5), rgb, _csb.x);
+    583: return rgb;
+    584: }
+    585: float4 conSatBri(float4 _rgba, float3 _csb)
+    586: {
+    587: return float4(conSatBri(_rgba.xyz, _csb), _rgba.w);
+    588: }
+    589: float3 posterize(float3 _rgb, float _numColors)
+    590: {
+    591: return floor(_rgb*_numColors) / _numColors;
+    592: }
+    593: float4 posterize(float4 _rgba, float _numColors)
+    594: {
+    595: return float4(posterize(_rgba.xyz, _numColors), _rgba.w);
+    596: }
+    597: float3 sepia(float3 _rgb)
+    598: {
+    599: float3 color;
+    600: color.x = dot(_rgb, float3(0.393, 0.769, 0.189) );
+    601: color.y = dot(_rgb, float3(0.349, 0.686, 0.168) );
+    602: color.z = dot(_rgb, float3(0.272, 0.534, 0.131) );
+    603: return color;
+    604: }
+    605: float4 sepia(float4 _rgba)
+    606: {
+    607: return float4(sepia(_rgba.xyz), _rgba.w);
+    608: }
+    609: float3 blendOverlay(float3 _base, float3 _blend)
+    610: {
+    611: float3 lt = 2.0 * _base * _blend;
+    612: float3 gte = 1.0 - 2.0 * (1.0 - _base) * (1.0 - _blend);
+    613: return mix(lt, gte, step(vec3_splat(0.5), _base) );
+    614: }
+    615: float4 blendOverlay(float4 _base, float4 _blend)
+    616: {
+    617: return float4(blendOverlay(_base.xyz, _blend.xyz), _base.w);
+    618: }
+    619: float3 adjustHue(float3 _rgb, float _hue)
+    620: {
+    621: float3 yiq = convertRGB2YIQ(_rgb);
+    622: float angle = _hue + atan2(yiq.z, yiq.y);
+    623: float len = length(yiq.yz);
+    624: return convertYIQ2RGB(float3(yiq.x, len*cos(angle), len*sin(angle) ) );
+    625: }
+    626: float4 packFloatToRgba(float _value)
+    627: {
+    628: const float4 shift = float4(256 * 256 * 256, 256 * 256, 256, 1.0);
+    629: const float4 mask = float4(0, 1.0 / 256.0, 1.0 / 256.0, 1.0 / 256.0);
+    630: float4 comp = frac(_value * shift);
+    631: comp -= comp.xxyz * mask;
+    632: return comp;
+    633: }
+    634: float unpackRgbaToFloat(float4 _rgba)
+    635: {
+    636: const float4 shift = float4(1.0 / (256.0 * 256.0 * 256.0), 1.0 / (256.0 * 256.0), 1.0 / 256.0, 1.0);
+    637: return dot(_rgba, shift);
+    638: }
+    639: float2 packHalfFloat(float _value)
+    640: {
+    641: const float2 shift = float2(256, 1.0);
+    642: const float2 mask = float2(0, 1.0 / 256.0);
+    643: float2 comp = frac(_value * shift);
+    644: comp -= comp.xx * mask;
+    645: return comp;
+    646: }
+    647: float unpackHalfFloat(float2 _rg)
+    648: {
+    649: const float2 shift = float2(1.0 / 256.0, 1.0);
+    650: return dot(_rg, shift);
+    651: }
+    652: float random(float2 _uv)
+    653: {
+    654: return frac(sin(dot(_uv.xy, float2(12.9898, 78.233) ) ) * 43758.5453);
+    655: }
+    656: float3 fixCubeLookup(float3 _v, float _lod, float _topLevelCubeSize)
+    657: {
+    658: float ax = abs(_v.x);
+    659: float ay = abs(_v.y);
+    660: float az = abs(_v.z);
+    661: float vmax = max(max(ax, ay), az);
+    662: float scale = 1.0 - exp2(_lod) / _topLevelCubeSize;
+    663: if (ax != vmax) { _v.x *= scale; }
+    664: if (ay != vmax) { _v.y *= scale; }
+    665: if (az != vmax) { _v.z *= scale; }
+    666: return _v;
+    667: }
+    668: float2 texture2DBc5(BgfxSampler2D _sampler, float2 _uv)
+    669: {
+    670: return bgfxTexture2D(_sampler, _uv).xy;
+    671: }
+    672: float3x3 cofactor(float4x4 _m)
+    673: {
+    674: return float3x3(
+    675: _m[1][1]*_m[2][2]-_m[1][2]*_m[2][1],
+    676: _m[1][2]*_m[2][0]-_m[1][0]*_m[2][2],
+    677: _m[1][0]*_m[2][1]-_m[1][1]*_m[2][0],
+    678: _m[0][2]*_m[2][1]-_m[0][1]*_m[2][2],
+    679: _m[0][0]*_m[2][2]-_m[0][2]*_m[2][0],
+    680: _m[0][1]*_m[2][0]-_m[0][0]*_m[2][1],
+    681: _m[0][1]*_m[1][2]-_m[0][2]*_m[1][1],
+    682: _m[0][2]*_m[1][0]-_m[0][0]*_m[1][2],
+    683: _m[0][0]*_m[1][1]-_m[0][1]*_m[1][0]
+    684: );
+    685: }
+    686: float toClipSpaceDepth(float _depthTextureZ)
+    687: {
+    688: return _depthTextureZ;
+    689: }
+    690: float3 clipToWorld(float4x4 _invViewProj, float3 _clipPos)
+    691: {
+    692: float4 wpos = mul(_invViewProj, float4(_clipPos, 1.0) );
+    693: return wpos.xyz / wpos.w;
+    694: }
+    695: void main( float4 gl_FragCoord : SV_POSITION , float3 a_position : POSITION , float2 a_texcoord0 : TEXCOORD0 )
+    696: {
+    697: float4 bgfx_VoidFrag = vec4_splat(0.0);
+    698: gl_Position = mul(u_modelViewProj, float4(a_position, 1.0) );
+    699: v_texcoord0 = a_texcoord0;
+    700: }
+---
+Error: D3DCompile failed 0x80004005 Z:\bgfx\examples\runtime\shaders\dx11\vs_50_splat.bin.hlsl(698,1-11): error X3004: undeclared identifier 'gl_Position'
+
+Failed to build shader.
+
+CLINK Z:\bgfx\examples\50-nanite>.\..\..\.build\win64_vs2022\bin\shadercDebug.exe -f fs_50_splat.sc -o ..\runtime\shaders\dx11\fs_50_splat.bin  --type f --platform windows --debug --profile s_5_0 -i .\..\..\src 
