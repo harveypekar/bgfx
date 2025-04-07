@@ -20,6 +20,15 @@
 #include <format>
 #include <chrono>
 
+ // Define these only in *one* .cc file.
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
+#include "tiny_gltf.h"
+
+
+
 namespace bgfx
 {
 	void renderDocTriggerCapture();
@@ -48,7 +57,38 @@ struct PosTexCoord0Vertex
 	static bgfx::VertexLayout ms_layout;
 };
 
+struct PosNormTanTex0Vertex
+{
+
+	float m_x;
+	float m_y;
+	float m_z;
+	float m_nx;
+	float m_ny;
+	float m_nz;
+	float m_tx;
+	float m_ty;
+	float m_tz;
+	float m_tw;
+	float m_u;
+	float m_v;
+
+	static void init()
+	{
+		ms_layout
+			.begin()
+			.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+			.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float)
+			.add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float)
+			.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+			.end();
+	}
+
+	static bgfx::VertexLayout ms_layout;
+};
+
 bgfx::VertexLayout PosTexCoord0Vertex::ms_layout;
+bgfx::VertexLayout PosNormTanTex0Vertex::ms_layout;
 
 #define REFERENCE_SAMPLES 64
 
@@ -166,8 +206,8 @@ public:
 		m_splatProgram = loadProgram("vs_50_splat", "fs_50_splat");
 
 
-		m_mesh = meshLoad("meshes/bunny.bin");
-
+		m_mesh = meshLoad("sponza_intel/newsponza.bin");
+		loadGLTF();
 
 		
 		const uint64_t bilinearFlags = 0
@@ -293,6 +333,30 @@ public:
 		return 0;
 	}
 
+	struct GLTFRenderable
+	{
+		bgfx::VertexBufferHandle vb;
+	};
+
+	bool loadGLTF()
+	{
+		char* path = "sponza_intel/NewSponza_Main_glTF_003.gltf";
+		tinygltf::Model model;
+		tinygltf::TinyGLTF loader;
+		std::string err, warn;
+
+		bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+
+		if (err.size() > 0)
+			bx::debugPrintf("GLFT ERROR : %s", err.c_str());
+
+		if (warn.size() > 0)
+			bx::debugPrintf("GLFT WARN : %s", warn.c_str());
+
+		//what's the format?
+
+		return ret;
+	}
 
 	void screenSpaceQuad(bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
 	{
@@ -477,26 +541,8 @@ public:
 			if(m_shouldUpdate)
 
 			bgfx::setUniform(u_time, &time);
-			/*
-			*
-			*
-			imguiBeginFrame(m_mouseState.m_mx
-				,  m_mouseState.m_my
-				, (m_mouseState.m_buttons[entry::MouseButton::Left  ] ? IMGUI_MBUT_LEFT   : 0)
-				| (m_mouseState.m_buttons[entry::MouseButton::Right ] ? IMGUI_MBUT_RIGHT  : 0)
-				| (m_mouseState.m_buttons[entry::MouseButton::Middle] ? IMGUI_MBUT_MIDDLE : 0)
-				,  m_mouseState.m_mz
-				, uint16_t(m_width)
-				, uint16_t(m_height)
-				);
-
-			showExampleDialog(this);
-
-
-			ImGui::TextWrapped("pos %f %f %f", camPos.x, camPos.y, camPos.z);
-
-			imguiEndFrame();
-			*/
+		
+			
 
 			bx::Vec3 translation = bx::Vec3(0.0f);
 			if (inputGetKeyState(entry::Key::KeyW))
@@ -529,6 +575,23 @@ public:
 			renderNanite();
 			renderReference();
 
+
+			imguiBeginFrame(m_mouseState.m_mx
+				, m_mouseState.m_my
+				, (m_mouseState.m_buttons[entry::MouseButton::Left] ? IMGUI_MBUT_LEFT : 0)
+				| (m_mouseState.m_buttons[entry::MouseButton::Right] ? IMGUI_MBUT_RIGHT : 0)
+				| (m_mouseState.m_buttons[entry::MouseButton::Middle] ? IMGUI_MBUT_MIDDLE : 0)
+				, m_mouseState.m_mz
+				, uint16_t(m_width)
+				, uint16_t(m_height)
+			);
+
+			showExampleDialog(this);
+
+
+			ImGui::TextWrapped("pos %f %f %f", m_camPos.x, m_camPos.y, m_camPos.z);
+
+			imguiEndFrame();
 
 			bool captureKey = inputGetKeyState(entry::Key::KeyB)
 				|| inputGetKeyState(entry::Key::KeyV);

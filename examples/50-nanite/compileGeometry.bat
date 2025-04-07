@@ -1,0 +1,1 @@
+.\..\..\.build\win64_vs2022\bin\geometrycRelease.exe -f sponza2/sponza.obj -o ..\runtime\meshes\sponza.bin
