@@ -9,6 +9,7 @@
 #include <bx/allocator.h>
 #include <bx/file.h>
 #include <bx/string.h>
+#include <bx/rng.h>
 
 #include "bgfx/bgfx.h"
 #include "bgfx_utils.h"
@@ -132,7 +133,7 @@ public:
 		m_width = _width;
 		m_height = _height;
 		m_debug = BGFX_DEBUG_NONE;
-		m_reset = BGFX_RESET_VSYNC;
+		m_reset = BGFX_RESET_NONE;
 
 		bgfx::Init init;
 		init.type = bgfx::RendererType::Direct3D12;
@@ -168,7 +169,7 @@ public:
 			, 0
 		);
 
-		for (int i = 0; i < m_superSamples; ++i)
+		for (int i = 0; i < REFERENCE_SAMPLES; ++i)
 		{
 			bgfx::setViewClear(kRenderPassReferenceGeometry + uint16_t(2*i)
 				, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
@@ -177,7 +178,7 @@ public:
 				, 0
 			);
 
-			uint16_t clearFlags = i == 0 ? 0 : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH;
+			uint16_t clearFlags = i == 0 ? BGFX_CLEAR_COLOR : BGFX_CLEAR_NONE;
 			bgfx::setViewClear(kRenderPassReferenceAccum + uint16_t(2 * i)
 				, clearFlags
 				, 0x000000FF
@@ -268,7 +269,7 @@ public:
 		referenceAttachments[1].init(m_referenceDepthRT);
 		m_referenceFB = bgfx::createFrameBuffer(2, referenceAttachments);
 
-		for (int i = 0; i < m_superSamples; ++i)
+		for (int i = 0; i < REFERENCE_SAMPLES; ++i)
 		{
 			bgfx::setViewFrameBuffer(kRenderPassReferenceGeometry + uint16_t(i*2), m_referenceFB);
 			char buffer[1024];
@@ -287,12 +288,12 @@ public:
 			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
 		setName(m_referenceAccumRB, "m_referenceAccumRB");
 
-		for (int i = 0; i < m_superSamples; ++i)
+		for (int i = 0; i < REFERENCE_SAMPLES; ++i)
 		{
 			bgfx::setViewFrameBuffer(kRenderPassReferenceAccum + uint16_t(i * 2), m_referenceAccumFB);
 			char buffer[1024];
 			snprintf(buffer, 1024, "ViewSuperGeometry_%d", i);
-			bgfx::setViewName(kRenderPassReferenceGeometry + uint16_t(i * 2), buffer);
+			bgfx::setViewName(kRenderPassReferenceAccum + uint16_t(i * 2), buffer);
 		}
 
 		m_samplerSource = bgfx::createUniform("samplerSource", bgfx::UniformType::Sampler);
@@ -513,40 +514,62 @@ public:
 		bgfx::setMarker("[DN] Reference Pass");
 		bgfx::setState(0);
 
-		bgfx::setViewRect(kRenderPassReferenceGeometry, 0, 0,
-			uint16_t(m_width), uint16_t(m_height));
-		bgfx::touch(kRenderPassReferenceGeometry);
+		for (int pass = 0; pass < REFERENCE_SAMPLES; ++pass)
+		{
+
+			const bgfx::ViewId kRenderPassCurrentReferenceGeometry =
+				kRenderPassReferenceGeometry + int16_t(2 * pass);
+			const bgfx::ViewId kRenderPassCurrentReferenceAccum =
+				kRenderPassCurrentReferenceGeometry + 1;
+			
+
+			const float halfPixelX = bx::toRad(m_fov.x) * 0.5f / static_cast<float>(m_width);
+			const float halfPixelY = bx::toRad(m_fov.y) * 0.5f / static_cast<float>(m_height);
+
+			const float sampleOffsetX = bx::frndh(&m_rng) * halfPixelX;
+			const float sampleOffsetY = bx::frndh(&m_rng) * halfPixelY;
+
+			float view[16];
+			float viewRotation[16];
+			bx::mtxRotateXY(viewRotation, sampleOffsetX, sampleOffsetY);
+			bx::mtxMul(view, m_view, viewRotation);
+			
+			bgfx::setViewRect(kRenderPassCurrentReferenceGeometry, 0, 0,
+				uint16_t(m_width), uint16_t(m_height));
+			bgfx::touch(kRenderPassCurrentReferenceGeometry);
 
 
 
 
-		bgfx::setViewTransform(kRenderPassReferenceGeometry, m_view, m_proj);
-		bgfx::setViewRect(kRenderPassReferenceGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
+			bgfx::setViewTransform(kRenderPassCurrentReferenceGeometry, view, m_proj);
+			bgfx::setViewRect(kRenderPassCurrentReferenceGeometry, 0, 0, uint16_t(m_width), uint16_t(m_height));
 
-		renderScene(kRenderPassReferenceGeometry);
-
-
-		float proj[16];
-		const bgfx::Caps* caps = bgfx::getCaps();
-		bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
-		bgfx::setViewTransform(kRenderPassReferenceAccum, NULL, proj);
-
-		bgfx::setViewRect(kRenderPassReferenceAccum, 0, 0, uint16_t(m_width), uint16_t(m_height));
+			renderScene(kRenderPassCurrentReferenceGeometry);
 
 
-		bgfx::touch(kRenderPassReferenceAccum);
-		bgfx::setMarker("[DN] Reference accum Pass");
-		// Combine color and light buffers.
-		bgfx::setTexture(0, m_samplerSource, m_referenceRT);
-		bgfx::setState(0
-			| BGFX_STATE_WRITE_RGB
-			| BGFX_STATE_WRITE_A
-			| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_COLOR, BGFX_STATE_BLEND_DST_COLOR)
-			| BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD)                   
-		);
+			float proj[16];
+			const bgfx::Caps* caps = bgfx::getCaps();
+			bx::mtxOrtho(proj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f, 0.0f, caps->homogeneousDepth);
+			bgfx::setViewTransform(kRenderPassCurrentReferenceAccum, NULL, proj);
 
-		screenSpaceQuad(false);
-		bgfx::submit(kRenderPassReferenceAccum, m_splatProgram);
+			bgfx::setViewRect(kRenderPassCurrentReferenceAccum, 0, 0, uint16_t(m_width), uint16_t(m_height));
+
+
+			bgfx::touch(kRenderPassCurrentReferenceAccum);
+			bgfx::setMarker("[DN] Reference accum Pass");
+			// Combine color and light buffers.
+			bgfx::setTexture(0, m_samplerSource, m_referenceRT);
+			bgfx::setState(0
+				| BGFX_STATE_WRITE_RGB
+				| BGFX_STATE_WRITE_A
+				| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_COLOR, BGFX_STATE_BLEND_DST_COLOR)
+				| BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD)
+			);
+
+			screenSpaceQuad(false);
+			bgfx::submit(kRenderPassCurrentReferenceAccum, m_splatProgram);
+		}
+
 	}
 
 
@@ -763,9 +786,7 @@ public:
 	const bgfx::ViewId kRenderPassReferenceGeometry = kRenderPassNaniteGeometry + 1;
 	const bgfx::ViewId kRenderPassReferenceAccum = kRenderPassReferenceGeometry + 1;
 
-	const uint16_t m_superSamples = 1;
-
-	const bgfx::ViewId kRenderPassCopyBack = kRenderPassReferenceAccum + 2* m_superSamples + 1;
+	const bgfx::ViewId kRenderPassCopyBack = kRenderPassReferenceAccum + 2* REFERENCE_SAMPLES + 1;
 	const bgfx::ViewId kRenderPassCombine = kRenderPassCopyBack + 1;
 
 	bx::Vec3 m_camPos;
@@ -776,6 +797,8 @@ public:
 
 	char* m_runPrefix;
 
+	//m_fov
+	bx::RngMwc m_rng;
 };
 
 } // namespace
