@@ -206,8 +206,9 @@ public:
 		m_splatProgram = loadProgram("vs_50_splat", "fs_50_splat");
 
 
-		m_mesh = meshLoad("sponza_intel/newsponza.bin");
-		loadGLTF();
+		//m_mesh = meshLoad("Sponza-master/sponza.bin");
+		m_mesh = meshLoad("meshes/bunny.bin");
+		//loadGLTF();
 
 		
 		const uint64_t bilinearFlags = 0
@@ -418,8 +419,31 @@ public:
 		bx::mtxTranslate(model, m_bunnyPos.x, m_bunnyPos.y, m_bunnyPos.z);
 		bx::mtxRotateXY(model, 0.0f, 0.0f);
 
+
 		meshSubmit(m_mesh, viewId, m_program, model);
+
+		/*
+		bgfx::setTransform(model);
+
+		for (GroupArray::const_iterator it = m_mesh->m_groups.begin(), itEnd = m_mesh->m_groups.end(); it != itEnd; ++it)
+		{
+			const Group& group = *it;
+
+			bgfx::setIndexBuffer(group.m_ibh);
+			bgfx::setVertexBuffer(0, group.m_vbh);
+			bgfx::submit(
+				viewId
+				, m_program
+				, m_proj
+				, BGFX_DISCARD_INDEX_BUFFER
+				| BGFX_DISCARD_VERTEX_STREAMS
+			);
+		}
+
+		bgfx::discard();
+		*/
 	}
+	
 
 	void updateViewMatrix()
 	{

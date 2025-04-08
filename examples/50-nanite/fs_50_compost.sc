@@ -22,7 +22,7 @@ void main()
 	color.r = dot(luminance, base.rgb);
 	color.g = dot(luminance, nanite.rgb);
 	color.b = dot(luminance, reference.rgb);
-
+	color.rgb = base.rgb;
 	color.a = 1.0;
 	gl_FragColor = color;
 }
