@@ -292,7 +292,7 @@ public:
 		{
 			bgfx::setViewFrameBuffer(kRenderPassReferenceAccum + uint16_t(i * 2), m_referenceAccumFB);
 			char buffer[1024];
-			snprintf(buffer, 1024, "ViewSuperGeometry_%d", i);
+			snprintf(buffer, 1024, "ViewReferenceAccum_%d", i);
 			bgfx::setViewName(kRenderPassReferenceAccum + uint16_t(i * 2), buffer);
 		}
 
@@ -642,7 +642,7 @@ public:
 
 			bool captureKey = inputGetKeyState(entry::Key::KeyB)
 				|| inputGetKeyState(entry::Key::KeyV);
-			if (captureKey && !m_baseRBReady && !m_naniteRBReady)
+			if (captureKey && !m_baseRBReady && !m_naniteRBReady && !m_referenceRBReady)
 			{
 				bgfx::setMarker("[DN] Readback Pass");
 
@@ -650,10 +650,13 @@ public:
 				bgfx::blit(kRenderPassCopyBack, m_baseRB, 0, 0, m_baseRT);
 				m_baseRBTimer = bgfx::readTexture(m_baseRB, m_basePixelBuffer);
 
-
 				m_naniteRBReady = true;
 				bgfx::blit(kRenderPassCopyBack, m_naniteRB, 0, 0, m_naniteRT);
 				m_naniteRBTimer = bgfx::readTexture(m_naniteRB, m_nanitePixelBuffer);
+
+				m_referenceRBReady = true;
+				bgfx::blit(kRenderPassCopyBack, m_referenceAccumRB, 0, 0, m_referenceAccumRT);
+				m_referenceRBTimer = bgfx::readTexture(m_referenceAccumRB, m_referencePixelBuffer);
 			}
 
 			if (m_frameNum == m_baseRBTimer + 2)
@@ -686,6 +689,33 @@ public:
 				}
 
 				m_naniteRBReady = false;
+			}
+
+			if (m_frameNum == m_referenceRBTimer + 2)
+			{
+				uint32_t* outBuffer = (uint32_t*)malloc(sizeof(uint32_t) * m_width * m_height);
+				uint8_t* outPtr = (uint8_t*)outBuffer;
+				float* inPtr = m_referencePixelBuffer;
+				for (uint32_t i = 0; i < (m_width * m_height); ++i)
+				{
+					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
+					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
+					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
+					*outPtr++ = 0xFF;
+				}
+
+				bx::FileWriter writer;
+				char nameBuffer[1024];
+				snprintf(nameBuffer, 1024, "%s_%d_%s.png", m_runPrefix,
+					m_referenceRBTimer, "reference");
+				if (bx::open(&writer, nameBuffer, false, bx::ErrorAssert{}))
+				{
+					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), outBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
+					bx::close(&writer);
+				}
+
+				free(outBuffer);
+				m_referenceRBReady = false;
 			}
 
 			float proj[16];
