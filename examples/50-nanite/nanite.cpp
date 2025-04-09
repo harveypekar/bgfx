@@ -188,6 +188,12 @@ public:
 
 		}
 
+		bgfx::setViewClear(kRenderPassResolveReference
+			, BGFX_CLEAR_COLOR
+			, 0x000000FF
+			, 1.0f
+			, 0
+		);
 	
 		// Set geometry pass view clear state.
 		bgfx::setViewClear(kRenderPassCombine
@@ -284,10 +290,11 @@ public:
 		bgfx::Attachment referenceAccumAttachments[1];
 		referenceAccumAttachments[0].init(m_referenceAccumRT);
 		m_referenceAccumFB = bgfx::createFrameBuffer(1, referenceAccumAttachments);
-		m_referenceAccumRB = bgfx::createTexture2D(
-			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
-		setName(m_referenceAccumRB, "m_referenceAccumRB");
+		bgfx::setName(m_referenceAccumFB, "referenceAccumFB");
 
+		
+		bgfx::setViewFrameBuffer(kRenderPassBaseGeometry, m_baseFB);
+		bgfx::setViewName(kRenderPassBaseGeometry, "ViewBaseGeometry");
 		for (int i = 0; i < REFERENCE_SAMPLES; ++i)
 		{
 			bgfx::setViewFrameBuffer(kRenderPassReferenceAccum + uint16_t(i * 2), m_referenceAccumFB);
@@ -295,6 +302,21 @@ public:
 			snprintf(buffer, 1024, "ViewReferenceAccum_%d", i);
 			bgfx::setViewName(kRenderPassReferenceAccum + uint16_t(i * 2), buffer);
 		}
+
+
+		m_referenceResolveRT = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_RT);
+		setName(m_referenceResolveRT, "m_referenceResolveRT");
+		m_referenceResolveRB = bgfx::createTexture2D(
+			uint16_t(m_width), uint16_t(m_height), false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+		setName(m_referenceResolveRB, "m_referenceResolveRB");
+
+		bgfx::Attachment referenceResolveAttachments[1];
+		referenceResolveAttachments[0].init(m_referenceResolveRT);
+		m_referenceResolveFB = bgfx::createFrameBuffer(1, referenceResolveAttachments);
+		bgfx::setName(m_referenceResolveFB, "referenceResolveFB");
+		bgfx::setViewFrameBuffer(kRenderPassResolveReference, m_referenceResolveFB);
+
 
 		m_samplerSource = bgfx::createUniform("samplerSource", bgfx::UniformType::Sampler);
 		m_samplerBase = bgfx::createUniform("samplerBase", bgfx::UniformType::Sampler);
@@ -310,7 +332,7 @@ public:
 
 		m_basePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
 		m_nanitePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
-		m_referencePixelBuffer = (float*)malloc(sizeof(float) * 4 * m_width * m_height);
+		m_referencePixelBuffer = (uint8_t*)malloc(sizeof(uint32_t) * m_width * m_height);
 
 		m_timeOffset = bx::getHPCounter();
 
@@ -561,15 +583,29 @@ public:
 			bgfx::setTexture(0, m_samplerSource, m_referenceRT);
 			bgfx::setState(0
 				| BGFX_STATE_WRITE_RGB
-				| BGFX_STATE_WRITE_A
+				//| BGFX_STATE_WRITE_A
 				| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_COLOR, BGFX_STATE_BLEND_DST_COLOR)
-				| BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD)
+				| BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_ADD, BGFX_STATE_BLEND_ONE)
+				
 			);
 
 			screenSpaceQuad(false);
 			bgfx::submit(kRenderPassCurrentReferenceAccum, m_splatProgram);
+
+
 		}
 
+		bgfx::touch(kRenderPassResolveReference);
+		bgfx::setMarker("[DN] Reference resolve Pass");
+		// Combine color and light buffers.
+		bgfx::setTexture(0, m_samplerSource, m_referenceAccumRT);
+		bgfx::setState(0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+		);
+
+		screenSpaceQuad(false);
+		bgfx::submit(kRenderPassResolveReference, m_splatProgram);
 	}
 
 
@@ -640,8 +676,11 @@ public:
 
 			imguiEndFrame();
 
-			bool captureKey = inputGetKeyState(entry::Key::KeyB)
-				|| inputGetKeyState(entry::Key::KeyV);
+			bool bDown = inputGetKeyState(entry::Key::KeyB);
+			inputSetKeyState(entry::Key::KeyB, 0, false);
+			bool vDown = inputGetKeyState(entry::Key::KeyV);
+			inputSetKeyState(entry::Key::KeyV, 0, false);
+			bool captureKey = bDown || vDown;
 			if (captureKey && !m_baseRBReady && !m_naniteRBReady && !m_referenceRBReady)
 			{
 				bgfx::setMarker("[DN] Readback Pass");
@@ -655,8 +694,8 @@ public:
 				m_naniteRBTimer = bgfx::readTexture(m_naniteRB, m_nanitePixelBuffer);
 
 				m_referenceRBReady = true;
-				bgfx::blit(kRenderPassCopyBack, m_referenceAccumRB, 0, 0, m_referenceAccumRT);
-				m_referenceRBTimer = bgfx::readTexture(m_referenceAccumRB, m_referencePixelBuffer);
+				bgfx::blit(kRenderPassCopyBack, m_referenceResolveRB, 0, 0, m_referenceResolveRT);
+				m_referenceRBTimer = bgfx::readTexture(m_referenceResolveRB, m_referencePixelBuffer);
 			}
 
 			if (m_frameNum == m_baseRBTimer + 2)
@@ -693,28 +732,16 @@ public:
 
 			if (m_frameNum == m_referenceRBTimer + 2)
 			{
-				uint32_t* outBuffer = (uint32_t*)malloc(sizeof(uint32_t) * m_width * m_height);
-				uint8_t* outPtr = (uint8_t*)outBuffer;
-				float* inPtr = m_referencePixelBuffer;
-				for (uint32_t i = 0; i < (m_width * m_height); ++i)
-				{
-					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
-					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
-					*outPtr++ = static_cast<uint8_t>((*inPtr) * 259.99f);
-					*outPtr++ = 0xFF;
-				}
-
 				bx::FileWriter writer;
 				char nameBuffer[1024];
 				snprintf(nameBuffer, 1024, "%s_%d_%s.png", m_runPrefix,
 					m_referenceRBTimer, "reference");
 				if (bx::open(&writer, nameBuffer, false, bx::ErrorAssert{}))
 				{
-					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), outBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
+					bimg::imageWritePng(&writer, m_width, m_height, m_width * sizeof(uint32_t), m_referencePixelBuffer, bimg::TextureFormat::RGBA8, false, bx::ErrorAssert{});
 					bx::close(&writer);
 				}
 
-				free(outBuffer);
 				m_referenceRBReady = false;
 			}
 
@@ -788,8 +815,10 @@ public:
 	bgfx::TextureHandle m_referenceDepthRT;
 	bgfx::FrameBufferHandle m_referenceFB;
 	bgfx::TextureHandle m_referenceAccumRT;
+	bgfx::TextureHandle m_referenceResolveRT;
 	bgfx::FrameBufferHandle m_referenceAccumFB;
-	bgfx::TextureHandle m_referenceAccumRB;
+	bgfx::FrameBufferHandle m_referenceResolveFB;
+	bgfx::TextureHandle m_referenceResolveRB;
 
 
 	uint32_t m_baseRBTimer;
@@ -801,7 +830,7 @@ public:
 
 	uint8_t* m_basePixelBuffer;
 	uint8_t* m_nanitePixelBuffer;
-	float* m_referencePixelBuffer;
+	uint8_t* m_referencePixelBuffer;
 
 	//splat shader
 	bgfx::UniformHandle m_samplerSource;
@@ -816,7 +845,8 @@ public:
 	const bgfx::ViewId kRenderPassReferenceGeometry = kRenderPassNaniteGeometry + 1;
 	const bgfx::ViewId kRenderPassReferenceAccum = kRenderPassReferenceGeometry + 1;
 
-	const bgfx::ViewId kRenderPassCopyBack = kRenderPassReferenceAccum + 2* REFERENCE_SAMPLES + 1;
+	const bgfx::ViewId kRenderPassResolveReference = kRenderPassReferenceAccum + 2 * REFERENCE_SAMPLES + 1;
+	const bgfx::ViewId kRenderPassCopyBack = kRenderPassResolveReference + 1;
 	const bgfx::ViewId kRenderPassCombine = kRenderPassCopyBack + 1;
 
 	bx::Vec3 m_camPos;

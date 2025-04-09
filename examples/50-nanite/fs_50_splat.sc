@@ -12,5 +12,6 @@ SAMPLER2D(sourceSampler, 0);
 void main()
 {
 	vec4 base  = texture2D(sourceSampler, v_texcoord0);
+	base.a = 0;
 	gl_FragColor = base;
 }
